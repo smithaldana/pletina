@@ -1,5 +1,5 @@
 /* Pletina · service worker: funciona sin conexión y recibe archivos compartidos */
-const VERSION = 'pletina-v4';
+const VERSION = 'pletina-v5';
 const FONTS = 'pletina-fonts';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
