@@ -86,6 +86,7 @@ select{width:auto;padding-right:28px;font-size:14px;height:36px}
 .btn:active{transform:translateY(1px)}
 .btn-rec{background:var(--rec);color:var(--rec-ink);border-color:transparent}
 .btn-ghost{background:transparent}
+.btn.on{border-color:var(--rec);color:var(--rec)}
 .btn.danger{color:var(--rec);border-color:color-mix(in srgb,var(--rec) 45%,var(--line))}
 .btn.danger-fill{background:var(--rec);color:var(--rec-ink);border-color:transparent}
 .toolbar{display:flex;gap:8px;align-items:center;margin:0 0 6px}
@@ -379,6 +380,8 @@ body.is-playing .now .eq i{animation-name:eq2}
 .card:active .cv{transform:scale(.98)}
 .toolbar .seg.small{flex:0 1 auto}
 .np-listpanel .row{background:var(--panel)}
+.cloud-mark .ic{width:13px;height:13px;color:var(--muted);vertical-align:-2px;margin-right:4px}
+.row.unavail{opacity:.45}
 .lp-mini{display:none}
 @media (min-width:1000px){ #lp-collapse{display:none} }
 @media (max-width:999px){
@@ -656,7 +659,7 @@ const DB = {
 /* ───────── estado ───────── */
 const S = {
   tracks: new Map(), playlists: new Map(),
-  settings: { theme: 'system', audioOnly: false, speed: 1, filter: 'all', sort: 'added', npLayout: 'list', libView: 'songs', autoMix: true, normalize: true, xfade: 4, autoDl: 'none' },
+  settings: { theme: 'system', audioOnly: false, speed: 1, filter: 'all', sort: 'added', npLayout: 'list', libView: 'songs', autoMix: true, normalize: true, xfade: 4, autoDl: 'marked' },
   queue: [], orig: null, index: -1, source: { kind: 'library', label: 'Biblioteca' },
   shuffle: false, repeat: 'off',
   currentId: null, url: null, wantPlay: false, counted: false, resumeAt: 0,
@@ -890,8 +893,8 @@ function kindOf(f){
 function probe(blob){
   return new Promise(res => {
     const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'metadata';
-    const url = URL.createObjectURL(blob); let done = false;
-    const finish = r => { if (done) return; done = true; clearTimeout(to); v.removeAttribute('src'); try { v.load(); } catch {} URL.revokeObjectURL(url); res(r); };
+    const isUrl = typeof blob === 'string', url = isUrl ? blob : URL.createObjectURL(blob); let done = false;
+    const finish = r => { if (done) return; done = true; clearTimeout(to); v.removeAttribute('src'); try { v.load(); } catch {} if (!isUrl) URL.revokeObjectURL(url); res(r); };
     const to = setTimeout(() => finish({ duration: 0, video: false, timeout: true }), 20000);
     v.onloadedmetadata = () => {
       const dur = isFinite(v.duration) ? v.duration : 0;
@@ -1462,11 +1465,11 @@ function mosaic(ids, cls = ''){
 function wideRowHTML(t, { index, qi, handle = false, removable = false, current } = {}){
   const isCur = current ?? (t.id === S.currentId);
   const extra = [t.kind === 'video' ? 'Vídeo' : (t.album || 'Canción'), t.plays ? plural(t.plays, 'reproducción', 'reproducciones') : ''].filter(Boolean).join(' · ');
-  return `<li class="row wide${isCur ? ' is-current' : ''}" data-row data-id="${t.id}"${index != null ? ` data-index="${index}"` : ''}${qi != null ? ` data-qi="${qi}"` : ''}>`
+  return `<li class="row wide${isCur ? ' is-current' : ''}${unavailable(t) ? ' unavail' : ''}" data-row data-id="${t.id}"${index != null ? ` data-index="${index}"` : ''}${qi != null ? ` data-qi="${qi}"` : ''}>`
     + (handle ? `<button class="handle" data-handle type="button" aria-label="Arrastrar para mover">${icon('drag')}</button>` : '')
     + `<button class="row-main" data-act="play" type="button"><span class="wthumb"${t.tint ? ` style="background:${t.tint}"` : ''}><img class="bg" data-cover="${t.id}" alt=""><img class="fg" data-cover="${t.id}" alt="">`
     + (isCur ? '<span class="now"><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></span>' : `<span class="dur">${fmt(t.duration)}</span>`) + `</span>`
-    + `<span class="meta"><span class="t2">${esc(t.title)}</span><span class="s">${t.fav ? `<span class="fav-mark">${icon('heartFill')}</span>` : ''}${esc(t.artist || 'Artista desconocido')}</span><span class="s">${esc(extra)}</span></span></button>`
+    + `<span class="meta"><span class="t2">${esc(t.title)}</span><span class="s">${t.cloud ? `<span class="cloud-mark" title="En Drive, sin descargar">${icon('cloud')}</span>` : ''}${t.fav ? `<span class="fav-mark">${icon('heartFill')}</span>` : ''}${esc(t.artist || 'Artista desconocido')}</span><span class="s">${esc(extra)}</span></span></button>`
     + (removable ? `<button class="more" data-act="q-remove" type="button" aria-label="Quitar de la cola">${icon('x')}</button>` : `<button class="more" data-act="menu" type="button" aria-label="Opciones de ${esc(t.title)}">${icon('more')}</button>`)
     + `</li>`;
 }
@@ -1474,11 +1477,11 @@ function rowHTML(t, { index, qi, handle = false, removable = false, wide = false
   if (!t) return '';
   if (wide) return wideRowHTML(t, { index, qi, handle, removable });
   const isCur = t.id === S.currentId;
-  return `<li class="row${isCur ? ' is-current' : ''}" data-row data-id="${t.id}"${index != null ? ` data-index="${index}"` : ''}${qi != null ? ` data-qi="${qi}"` : ''}>`
+  return `<li class="row${isCur ? ' is-current' : ''}${unavailable(t) ? ' unavail' : ''}" data-row data-id="${t.id}"${index != null ? ` data-index="${index}"` : ''}${qi != null ? ` data-qi="${qi}"` : ''}>`
     + (handle ? `<button class="handle" data-handle type="button" aria-label="Arrastrar para mover">${icon('grip')}</button>` : '')
     + `<button class="row-main" data-act="play" type="button"><span class="thumb"${t.tint ? ` style="background:${t.tint}"` : ''}><img data-cover="${t.id}" alt="">${t.kind === 'video' ? `<span class="badge-vid" title="Vídeo">${icon('film')}</span>` : ''}</span>`
     + `<span class="meta"><span class="t">${isCur ? '<span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>' : ''}${esc(t.title)}</span>`
-    + `<span class="s">${t.fav ? `<span class="fav-mark">${icon('heartFill')}</span>` : ''}${esc(t.artist || 'Artista desconocido')} · ${fmt(t.duration)}</span></span></button>`
+    + `<span class="s">${t.cloud ? `<span class="cloud-mark" title="En Drive, sin descargar">${icon('cloud')}</span>` : ''}${t.fav ? `<span class="fav-mark">${icon('heartFill')}</span>` : ''}${esc(t.artist || 'Artista desconocido')} · ${fmt(t.duration)}</span></span></button>`
     + (removable ? `<button class="more" data-act="q-remove" type="button" aria-label="Quitar de la cola">${icon('x')}</button>` : `<button class="more" data-act="menu" type="button" aria-label="Opciones de ${esc(t.title)}">${icon('more')}</button>`)
     + `</li>`;
 }
@@ -1532,7 +1535,7 @@ function viewPlaylist(){
   S.ctx = { ids: items, source: { kind: 'playlist', id: p.id, label: p.name } };
   let h = `<button class="back" data-act="${p.fromLib ? 'back-lib' : 'back-lists'}" type="button">${icon('back')}${p.fromLib ? 'Biblioteca' : 'Listas'}</button>
   <div class="pl-head">${mosaic(items, 'big')}<div class="pl-info"><span class="eyebrow">${esc(p.kindLabel || (p.smart ? 'Lista automática' : 'Lista'))}</span><h1>${esc(p.name)}</h1><span class="s">${plural(items.length, 'pista', 'pistas')} · ${fmtTotal(durOf(items))}</span></div></div>
-  <div class="actions">${items.length ? `<button class="btn btn-rec" data-act="play-ctx" type="button">${icon('play')}Reproducir</button><button class="btn" data-act="shuffle-ctx" type="button">${icon('shuffle')}Aleatorio</button><button class="btn" data-act="share-pl" type="button">${icon('share')}Compartir</button>` : ''}${p.smart ? '' : `<button class="btn" data-act="pl-add" type="button">${icon('plus')}Añadir canciones</button><button class="icon-btn" data-act="pl-menu" data-pl="${p.id}" type="button" aria-label="Opciones de la lista">${icon('more')}</button>`}</div>`;
+  <div class="actions">${items.length ? `<button class="btn btn-rec" data-act="play-ctx" type="button">${icon('play')}Reproducir</button><button class="btn" data-act="shuffle-ctx" type="button">${icon('shuffle')}Aleatorio</button><button class="btn" data-act="share-pl" type="button">${icon('share')}Compartir</button>${S.settings.driveOn && !p.smart && items.some(id => S.tracks.get(id)?.driveId) ? `<button class="btn${offlinePls().has(p.id) ? ' on' : ''}" data-act="pl-offline" type="button" aria-pressed="${offlinePls().has(p.id)}">${icon('download')}${offlinePls().has(p.id) ? 'Sin conexión ✓' : 'Sin conexión'}</button>` : ''}` : ''}${p.smart ? '' : `<button class="btn" data-act="pl-add" type="button">${icon('plus')}Añadir canciones</button><button class="icon-btn" data-act="pl-menu" data-pl="${p.id}" type="button" aria-label="Opciones de la lista">${icon('more')}</button>`}</div>`;
   if (!items.length) h += `<p class="hint">${p.smart ? p.empty : 'Esta lista está vacía. Pulsa «Añadir canciones» para llenarla.'}</p>`;
   else if (!p.smart && items.length > 1) h += `<p class="hint" style="margin:0 0 6px;font-size:13px">Arrastra ${icon('drag')} para cambiar el orden.</p>`;
   h += `<ul class="rows" data-list="ctx"${p.smart ? '' : ' data-sortable="pl"'}>${items.map((id, i) => rowHTML(S.tracks.get(id), { index: i, handle: !p.smart, wide: true })).join('')}</ul>`;
@@ -1574,6 +1577,7 @@ function viewSettings(){
     <div class="set-row"><div class="lbl">Restaurar una copia<small>Las canciones se reconocen por nombre de archivo y tamaño.</small></div><button class="btn" data-act="import-backup" type="button">${icon('upload')}Importar</button></div>
   </div></section>
   <section class="set-group"><h2>Biblioteca</h2><div class="set-card">
+    <div class="set-row"><div class="lbl">Pasar vídeos a solo audio<small>Para los vídeos que solo escuchas: ocupan mucho menos y conservan portada y listas.</small></div><button class="btn" data-act="convert-all" type="button">${icon('headphones')}Convertir</button></div>
     <div class="set-row"><div class="lbl">Añadir música o vídeos<small>El selector del móvil también deja elegir archivos de Google Drive.</small></div><button class="btn btn-rec" data-act="import" type="button">${icon('plus')}Añadir</button></div>
     ${demos ? `<div class="set-row"><div class="lbl">Pistas de ejemplo<small>Las tres cintas generadas por la app.</small></div><button class="btn" data-act="remove-demos" type="button">Quitar</button></div>` : ''}
     <div class="set-row"><div class="lbl">Borrar toda la biblioteca<small>Elimina canciones, vídeos y listas de este dispositivo.</small></div><button class="btn danger" data-act="wipe" type="button">${icon('trash')}Borrar</button></div>
@@ -1803,7 +1807,8 @@ function updateLCDText(){
   if (S.repeat === 'all') f.push('REP'); else if (S.repeat === 'one') f.push('REP 1');
   if (S.settings.speed !== 1) f.push('×' + String(S.settings.speed).replace('.', ','));
   const sl = sleepLabel(); if (sl) f.push('☾ ' + sl.toUpperCase());
-  if (t && t.env === undefined) f.push('ANALIZANDO');
+  if (t && t.cloud) f.push('NUBE');
+  else if (t && t.env === undefined) f.push('ANALIZANDO');
   else if (t && t.env === null) f.push('SIN VÚMETRO');
   $('#lcd-flags').textContent = f.join('  ') || (t?.kind === 'video' ? 'VÍDEO' : 'ESTÉREO');
 }
@@ -2001,6 +2006,8 @@ function trackMenu(id, { plId, qi } = {}){
     ['add-pl', 'addlist', 'Añadir a una lista'],
     ['fav', t.fav ? 'heartFill' : 'heart', t.fav ? 'Quitar de favoritas' : 'Añadir a favoritas'],
     ['edit', 'edit', 'Editar información'],
+    ...(t.driveId ? (t.cloud ? [['dl', 'download', 'Descargar en este dispositivo']] : [['undl', 'cloud', `Quitar la descarga (libera ${fmtBytes(t.size || 0)})`]]) : []),
+    ...(t.kind === 'video' && !t.demo && !t.cloud ? [['to-audio', 'headphones', `Guardar solo el audio (ahorra ~${fmtBytes(Math.max(0, (t.size || 0) - estAudioBytes(t)))})`]] : []),
     ...(plId && !plId.startsWith('smart:') ? [['rm-pl', 'x', 'Quitar de esta lista']] : []),
     ...(qi != null && qi !== S.index ? [['rm-q', 'x', 'Quitar de la cola']] : []),
     ['delete', 'trash', 'Eliminar del dispositivo', 'danger'],
@@ -2014,6 +2021,9 @@ function trackMenu(id, { plId, qi } = {}){
       else if (m === 'rm-q'){ if (S.queue[qi] === id){ S.queue.splice(qi, 1); if (qi < S.index) S.index--; if (S.orig){ const i = S.orig.indexOf(id); if (i >= 0) S.orig.splice(i, 1); } saveStateSoon(); renderNPList(); if (S.view === 'queue') render(); toast('Quitada de la cola.'); } }
       else if (m === 'fav') toggleFav(id);
       else if (m === 'edit') later(() => editSheet(id));
+      else if (m === 'dl'){ if (!canStream()){ toast('Conecta con Drive para descargarla.', { action: 'Conectar', onAction: () => syncDrive({ interactive: true, media: false }) }); return; } t.keep = true; const tt2 = toast(`Descargando «${t.title}»…`, { ms: 1e9 }); downloadTrack(t, 'keep').then(() => { tt2.kill(); toast('Descargada: ya suena sin conexión.'); render(); }).catch(e => { tt2.kill(); toast('No se pudo descargar: ' + (e?.message || e)); }); }
+      else if (m === 'undl'){ t.keep = false; removeDownload(t).then(() => { render(); toast('Descarga quitada. Sigue en tu biblioteca y suena desde Drive.'); }); }
+      else if (m === 'to-audio') later(async () => { if (await confirmSheet({ title: '¿Guardar solo el audio?', text: `«${esc(t.title)}» pasará a ser una canción y se borrará la imagen de este dispositivo. Conserva la portada, listas y favoritas.`, ok: 'Convertir' })) convertOne(id); });
       else if (m === 'rm-pl'){ const p = S.playlists.get(plId); if (p){ const i = p.items.indexOf(id); if (i >= 0) p.items.splice(i, 1); p.updated = Date.now(); await DB.put('playlists', p); render(); toast(`Quitada de «${p.name}».`); } }
       else if (m === 'delete') later(async () => { if (await confirmSheet({ title: '¿Eliminar del dispositivo?', text: `«${esc(t.title)}» se borrará de Pletina y de todas tus listas. El archivo original que elegiste no se toca.`, ok: 'Eliminar', danger: true })){ await deleteTracks([id]); toast('Pista eliminada.'); } });
     }) });
@@ -2166,8 +2176,8 @@ const MEDIA_RE = /\.(mp3|m4a|aac|ogg|oga|opus|flac|wav|weba|mp4|m4v|webm|mov)$/i
 const GD = { token: null, exp: 0, folderId: null, folderName: '', listsId: null, listsRO: false, busy: false, pushT: 0, merging: false, created: false };
 const clientId = () => GOOGLE_CLIENT_ID || S.settings.driveClientId || '';
 const tokValid = () => !!GD.token && GD.exp > Date.now() + 60000;
-function loadTok(){ try { const j = JSON.parse(localStorage.getItem('pletina-gtok') || 'null'); if (j && j.exp > Date.now() + 60000){ GD.token = j.token; GD.exp = j.exp; } } catch {} }
-function saveTok(){ try { GD.token ? localStorage.setItem('pletina-gtok', JSON.stringify({ token: GD.token, exp: GD.exp })) : localStorage.removeItem('pletina-gtok'); } catch {} }
+function loadTok(){ try { const j = JSON.parse(localStorage.getItem('pletina-gtok') || 'null'); if (j && j.exp > Date.now() + 60000){ GD.token = j.token; GD.exp = j.exp; DB.put('meta', j, 'gtok').catch(() => {}); } } catch {} }
+function saveTok(){ try { GD.token ? localStorage.setItem('pletina-gtok', JSON.stringify({ token: GD.token, exp: GD.exp })) : localStorage.removeItem('pletina-gtok'); } catch {} (GD.token ? DB.put('meta', { token: GD.token, exp: GD.exp }, 'gtok') : DB.del('meta', 'gtok')).catch(() => {}); }
 let gisP = null;
 function loadGIS(){
   if (window.google?.accounts?.oauth2) return Promise.resolve();
@@ -2215,7 +2225,7 @@ async function listMedia(){
   GD.listsId = null;
   while (queue.length && seen.size < 300){
     const f = queue.shift(); if (seen.has(f.id)) continue; seen.add(f.id);
-    const items = await gList(`'${f.id}' in parents and trashed=false`, 'id,name,mimeType,size,md5Checksum,modifiedTime');
+    const items = await gList(`'${f.id}' in parents and trashed=false`, 'id,name,mimeType,size,md5Checksum,modifiedTime,videoMediaMetadata(width,height,durationMillis)');
     for (const it of items){
       if (it.mimeType === 'application/vnd.google-apps.folder') queue.push({ id: it.id, path: [...f.path, it.name] });
       else if (it.name === LISTS_FILE){ if (f.id === GD.folderId) GD.listsId = it.id; }
@@ -2306,10 +2316,14 @@ async function syncDrive({ interactive = false, media = true, quiet = false, fir
       if (toGet.length){
         S.importing = true; document.body.classList.add('recording'); requestPersist();
         tt = toast('', { ms: 1e9 }); const got = [];
+        const dlAll = S.settings.autoDl === 'all';
         for (let i = 0; i < toGet.length; i++){
           const f = toGet[i];
-          tt.set(`Drive: descargando ${i + 1} de ${toGet.length} · ${f.name} (${fmtBytes(f.size)})`); updateCounter(`SYNC ${i + 1}/${toGet.length}`);
-          try { const file = await driveDownload(f); const r = await importOne(file, { driveId: f.id, driveMd5: f.md5Checksum || '' }, f.album); if (r && r !== 'dup'){ got.push(r); added++; } }
+          tt.set(dlAll ? `Drive: descargando ${i + 1} de ${toGet.length} · ${f.name} (${fmtBytes(f.size)})` : `Drive: añadiendo ${i + 1} de ${toGet.length} · ${f.name}`); updateCounter(`SYNC ${i + 1}/${toGet.length}`);
+          try {
+            if (dlAll){ const file = await driveDownload(f); const r = await importOne(file, { driveId: f.id, driveMd5: f.md5Checksum || '' }, f.album); if (r && r !== 'dup'){ got.push(r); added++; } }
+            else { const id = await indexCloud(f); if (id){ got.push(id); added++; } }
+          }
           catch (e) { if (e.reauth) throw e; if (e?.name === 'QuotaExceededError'){ toast('No queda espacio en este dispositivo para más música.'); break; } console.warn('drive', f.name, e); }
         }
         tt.kill(); tt = null; S.importing = false; document.body.classList.remove('recording');
@@ -2321,6 +2335,7 @@ async function syncDrive({ interactive = false, media = true, quiet = false, fir
     await readDoc();
     await pushDoc();
     S.settings.driveLast = Date.now(); saveSettings();
+    ensureOffline();
     if (!quiet || added || removed){
       const parts = [];
       if (added) parts.push(plural(added, 'pista nueva', 'pistas nuevas'));
@@ -2392,9 +2407,165 @@ function driveSettingsHTML(){
     const localOnly = [...S.tracks.values()].filter(t => !t.driveId && !t.demo).length;
     rows = `<div class="set-row"><div class="lbl">${esc(S.settings.driveEmail || 'Conectado')}<small id="gd-status">${esc(driveStatusText())}</small></div><button class="btn btn-rec" data-act="gd-sync" type="button"${GD.busy ? ' disabled' : ''}>${icon('cloud')}${GD.busy ? 'Sincronizando…' : 'Sincronizar'}</button></div>`
       + (localOnly ? `<div class="set-row"><div class="lbl">${plural(localOnly, 'pista solo en este dispositivo', 'pistas solo en este dispositivo')}<small>Súbelas a la carpeta para tenerlas también en tus otros dispositivos.</small></div><button class="btn" data-act="gd-upload" type="button">${icon('upload')}Subir a Drive</button></div>` : '')
+      + `<div class="set-row col"><div class="lbl">Descargar en este dispositivo<small>Lo demás suena desde Drive cuando hay conexión, sin ocupar espacio. Las siguientes canciones de la cola se guardan solas por si te quedas sin cobertura.</small></div><div class="seg" role="group" aria-label="Qué descargar">${[['marked', 'Favoritas y listas marcadas'], ['lists', 'Solo listas marcadas'], ['all', 'Todo']].map(([k, l]) => `<button data-act="set-autodl" data-v="${k}" type="button" aria-pressed="${(S.settings.autoDl === 'none' ? 'marked' : S.settings.autoDl) === k}">${l}</button>`).join('')}</div></div>`
+      + `<div class="set-row"><div class="lbl">Liberar espacio<small>Quita del móvil lo que ya está en Drive, salvo favoritas y listas «Sin conexión».</small></div><button class="btn" data-act="free-space" type="button">${icon('cloud')}Liberar</button></div>`
       + `<div class="set-row"><div class="lbl">Desconectar<small>Tu música se queda en este dispositivo; deja de sincronizarse.</small></div><button class="btn danger" data-act="gd-disconnect" type="button">Desconectar</button></div>`;
   }
   return `<section class="set-group"><h2>Google Drive</h2><div class="set-card">${rows}${note}</div></section>`;
+}
+
+/* ───────── en la nube: pistas que suenan desde Drive sin ocupar espacio ───────── */
+const swReady = () => !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+const canStream = () => S.settings.driveOn && navigator.onLine !== false && tokValid();
+const unavailable = t => !!t?.cloud && !canStream();
+async function streamURL(t){
+  if (!t.driveId) return null;
+  if (!canStream()){
+    if (navigator.onLine !== false && S.settings.driveOn) toast(`«${t.title}» está en Drive y la sesión de Google caducó.`, { action: 'Reconectar', onAction: () => syncDrive({ interactive: true, media: false }), ms: 8000 });
+    return null;
+  }
+  if (swReady()) return `stream/${encodeURIComponent(t.driveId)}?s=${t.size || 0}&m=${encodeURIComponent(t.mime || '')}`;
+  /* sin service worker (primera visita): se descarga entera y se reproduce */
+  try { await downloadTrack(t, 'auto'); const b = await DB.get('blobs', t.id); return b ? URL.createObjectURL(b) : null; } catch { return null; }
+}
+async function rangeFetch(fid, a, b){ const r = await gapi(`files/${fid}?alt=media&supportsAllDrives=true`, { headers: { Range: `bytes=${a}-${Math.max(a, b)}` } }); return r.arrayBuffer(); }
+const remoteFile = f => ({ name: f.name, type: f.mimeType || '', size: f.size, slice(a = 0, b = f.size){ a = Math.max(0, a); b = Math.min(f.size, b); return { arrayBuffer: () => b > a ? rangeFetch(f.id, a, b - 1) : Promise.resolve(new ArrayBuffer(0)) }; } });
+async function indexCloud(f){
+  const ex = [...S.tracks.values()].find(t => t.driveId === f.id); if (ex) return null;
+  const tags = await readTags(remoteFile(f)).catch(() => ({}));
+  const isVid = /^video\//.test(f.mimeType || '') || /\.(mp4|m4v|webm|mov)$/i.test(f.name);
+  let pr = { duration: (+f.videoMediaMetadata?.durationMillis || 0) / 1000, video: isVid, w: f.videoMediaMetadata?.width || 0, h: f.videoMediaMetadata?.height || 0 };
+  if (swReady()){ const p2 = await probe(`stream/${encodeURIComponent(f.id)}?s=${f.size}&m=${encodeURIComponent(f.mimeType || '')}`); if (!p2.error && !p2.timeout) pr = { ...pr, ...p2, duration: p2.duration || pr.duration }; }
+  const nm = fromName(f.name);
+  const t = { id: uid(), title: tags.title || nm.title || f.name, artist: tags.artist || nm.artist || '', album: tags.album || f.album || '', kind: pr.video ? 'video' : 'audio', mime: f.mimeType || '', size: f.size, duration: pr.duration || 0, fileName: f.name, added: Date.now(), plays: 0, lastPlayed: 0, fav: false, w: pr.w || 0, h: pr.h || 0, wide: true, driveId: f.id, driveMd5: f.md5Checksum || '', cloud: true };
+  let cover = null, stats = null;
+  if (tags.cover){ try { cover = await shrinkImage(tags.cover); stats = await imageStats(cover); } catch { cover = null; } }
+  if (!cover && pr.frame){ try { stats = await imageStats(pr.frame); if (stats.lum > 12) cover = pr.frame; } catch {} }
+  if (!cover){ cover = await genCover(t.title + '·' + t.artist); stats = await imageStats(cover).catch(() => null); }
+  t.tint = stats?.tint || null;
+  await DB.put('covers', cover, t.id); await DB.put('tracks', t); S.tracks.set(t.id, t);
+  return t.id;
+}
+const dlBusy = new Set();
+async function downloadTrack(t, why = 'keep'){
+  if (!t?.driveId || !t.cloud || dlBusy.has(t.id)) return false;
+  dlBusy.add(t.id);
+  try {
+    await getToken(false);
+    const r = await gapi(`files/${t.driveId}?alt=media&supportsAllDrives=true`);
+    const blob = await r.blob();
+    await DB.put('blobs', blob, t.id);
+    Object.assign(t, { cloud: false, cached: why === 'auto', size: blob.size || t.size });
+    await saveTrack(t); queueAnalysis([t.id]);
+    if (why === 'auto') evictCache();
+    return true;
+  } finally { dlBusy.delete(t.id); }
+}
+async function removeDownload(t){
+  if (!t?.driveId || t.cloud) return;
+  if (t.id === S.currentId){ toast('No puedo quitar la descarga de la pista que está sonando.'); return; }
+  await DB.del('blobs', t.id); Object.assign(t, { cloud: true, cached: false }); await saveTrack(t);
+}
+const offlinePls = () => new Set(S.settings.offlinePls || []);
+function keepIds(){
+  const keep = new Set();
+  for (const id of offlinePls()){ const p = S.playlists.get(id); if (p) p.items.forEach(x => keep.add(x)); }
+  for (const t of S.tracks.values()) if (t.fav && S.settings.autoDl !== 'lists') keep.add(t.id);
+  return keep;
+}
+let offBusy = false;
+async function ensureOffline(){
+  if (offBusy || !canStream()) return; offBusy = true;
+  try {
+    const keep = keepIds();
+    const list = [...S.tracks.values()].filter(t => t.cloud && (keep.has(t.id) || S.settings.autoDl === 'all' || t.keep));
+    if (!list.length) return;
+    const tt = toast('', { ms: 1e9 }); let n = 0;
+    for (const t of list){ if (!canStream()) break; tt.set(`Descargando para escuchar sin conexión · ${++n} de ${list.length} · ${t.title}`); try { await downloadTrack(t, 'keep'); } catch (e) { if (e?.name === 'QuotaExceededError'){ toast('No queda espacio en el móvil.'); break; } } }
+    tt.kill(); if (S.view !== 'settings') render();
+  } finally { offBusy = false; }
+}
+let preBusy = false;
+async function prefetchAhead(){
+  if (preBusy || !canStream()) return; preBusy = true;
+  try {
+    for (let k = 1; k <= 2; k++){ const t = S.tracks.get(S.queue[S.index + k]); if (t && t.cloud && t.kind === 'audio' && t.size < 60e6) await downloadTrack(t, 'auto').catch(() => {}); }
+  } finally { preBusy = false; }
+}
+const CACHE_CAP = 1.5e9;
+async function evictCache(){
+  const keep = keepIds(), soon = new Set(S.queue.slice(Math.max(0, S.index), S.index + 3));
+  const cached = [...S.tracks.values()].filter(t => t.cached && !t.cloud && !keep.has(t.id) && !soon.has(t.id) && t.id !== S.currentId).sort((a, b) => (a.lastPlayed || 0) - (b.lastPlayed || 0));
+  let total = cached.reduce((a, t) => a + (t.size || 0), 0);
+  for (const t of cached){ if (total <= CACHE_CAP) break; total -= t.size || 0; await DB.del('blobs', t.id); Object.assign(t, { cloud: true, cached: false }); await saveTrack(t); }
+}
+async function freeSpace(){
+  const keep = keepIds();
+  const list = [...S.tracks.values()].filter(t => t.driveId && !t.cloud && !keep.has(t.id) && t.id !== S.currentId);
+  if (!list.length){ toast('No hay descargas que se puedan quitar.'); return; }
+  const bytes = list.reduce((a, t) => a + (t.size || 0), 0);
+  if (!(await confirmSheet({ title: 'Liberar espacio', text: `Se quitan del móvil ${plural(list.length, 'pista que ya está', 'pistas que ya están')} en tu Drive (${fmtBytes(bytes)}). Seguirán en tu biblioteca y sonarán desde Drive cuando haya conexión. Favoritas y listas «Sin conexión» se quedan.`, ok: 'Liberar' }))) return;
+  for (const t of list) await removeDownload(t);
+  render(); toast(`Liberados ${fmtBytes(bytes)}.`);
+}
+async function setPlOffline(plId, on){
+  const s = offlinePls(); on ? s.add(plId) : s.delete(plId); S.settings.offlinePls = [...s]; saveSettings(); render();
+  if (on){ if (!canStream()){ toast('Se descargará cuando conectes con Drive.', { action: 'Conectar', onAction: () => syncDrive({ interactive: true, media: false }).then(ensureOffline) }); return; } toast('Descargando la lista para escucharla sin conexión…'); ensureOffline(); }
+  else toast('La lista ya no se guarda sin conexión. Sus pistas se quitarán al liberar espacio.');
+}
+
+/* ───────── vídeo → solo audio (se extrae la pista de sonido sin recodificar) ───────── */
+const MB_URL = 'https://cdn.jsdelivr.net/npm/mediabunny@1.61.3/dist/bundles/mediabunny.min.mjs';
+let mbP = null;
+const loadMB = () => mbP || (mbP = import(MB_URL).catch(() => { mbP = null; throw new Error('no se pudo cargar el conversor. ¿Hay conexión?'); }));
+async function extractAudio(blob, onProg){
+  const MB = await loadMB();
+  const input = new MB.Input({ source: new MB.BlobSource(blob), formats: MB.ALL_FORMATS });
+  const at = await input.getPrimaryAudioTrack(); if (!at) throw new Error('el vídeo no tiene sonido');
+  const codec = await at.getCodec(), webm = codec === 'opus' || codec === 'vorbis';
+  const output = new MB.Output({ format: webm ? new MB.WebMOutputFormat() : new MB.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new MB.BufferTarget() });
+  const conv = await MB.Conversion.init({ input, output, video: { discard: true }, showWarnings: false });
+  if (!conv.isValid) throw new Error('no se puede extraer el audio de este formato');
+  if (onProg) conv.onProgress = p => onProg(p);
+  await conv.execute();
+  return { blob: new Blob([output.target.buffer], { type: webm ? 'audio/webm' : 'audio/mp4' }), ext: webm ? '.weba' : '.m4a' };
+}
+const estAudioBytes = t => Math.round((t.duration || 0) * 16500);
+const localVideos = async () => { const out = []; for (const t of S.tracks.values()) if (t.kind === 'video' && !t.demo && await DB.get('blobs', t.id).then(b => !!b).catch(() => false)) out.push(t); return out; };
+async function convertTrack(id, tt){
+  const t = S.tracks.get(id); if (!t || t.kind !== 'video') return 0;
+  const blob = await DB.get('blobs', id); if (!blob) throw new Error('el vídeo no está descargado en este dispositivo');
+  const before = blob.size;
+  const res = await extractAudio(blob, p => tt && tt.set(`Extrayendo el audio de «${t.title}» · ${Math.round(p * 100)} %`));
+  if (!res.blob.size) throw new Error('salió vacío');
+  const wasCur = S.currentId === id, pos = wasCur ? position() : 0, playing = wasCur && S.wantPlay;
+  if (wasCur){ S.wantPlay = false; stopTail(); for (const el of [audio, audio2, video]) clearEl(el); releaseSrc(S.src); S.src = null; S.url = null; }
+  await DB.put('blobs', res.blob, id);
+  Object.assign(t, { kind: 'audio', mime: res.blob.type, size: res.blob.size, fileName: t.fileName.replace(/\.[a-z0-9]{2,5}$/i, '') + res.ext, fromVideo: true, w: 0, h: 0 });
+  await saveTrack(t);
+  if (wasCur){ S.resumeAt = pos; await loadTrack(id, { autoplay: playing, at: pos }); }
+  return before - res.blob.size;
+}
+async function convertOne(id){
+  const t = S.tracks.get(id); if (!t) return;
+  const tt = toast('Preparando el conversor…', { ms: 1e9 });
+  try { const saved = await convertTrack(id, tt); tt.kill(); toast(`«${t.title}» ahora es solo audio. Has liberado ${fmtBytes(saved)}.`, { ms: 5000 }); render(); }
+  catch (e) { tt.kill(); toast('No se pudo convertir: ' + (e?.message || e), { ms: 6000 }); }
+}
+async function convertAll(){
+  const vids = await localVideos();
+  if (!vids.length){ toast('No hay vídeos descargados en este dispositivo.'); return; }
+  const total = vids.reduce((a, t) => a + (t.size || 0), 0), est = vids.reduce((a, t) => a + estAudioBytes(t), 0);
+  if (!(await confirmSheet({ title: `¿Pasar ${plural(vids.length, 'vídeo', 'vídeos')} a solo audio?`, text: `Ocupan ${fmtBytes(total)}; en audio quedarán en unos ${fmtBytes(est)}. Se borra la imagen de este dispositivo y conservan la portada, listas y favoritas. Si están en tu carpeta de Drive, allí siguen intactos.`, ok: 'Convertir' }))) return;
+  const tt = toast('Preparando el conversor…', { ms: 1e9 }); let saved = 0, ok = 0, fail = 0;
+  S.importing = true; document.body.classList.add('recording');
+  for (let i = 0; i < vids.length; i++){
+    updateCounter(`AUD ${i + 1}/${vids.length}`);
+    try { saved += await convertTrack(vids[i].id, { set: m => tt.set(`${i + 1} de ${vids.length} · ${m}`) }); ok++; }
+    catch (e) { fail++; console.warn('convertir', vids[i].title, e); if (/conversor/.test(e?.message || '')) break; }
+  }
+  S.importing = false; document.body.classList.remove('recording'); tt.kill(); updateCounter(); render();
+  toast(`${plural(ok, 'vídeo pasado', 'vídeos pasados')} a solo audio · ${fmtBytes(saved)} liberados${fail ? ` · ${fail} no se pudieron convertir` : ''}.`, { ms: 6000 });
 }
 
 /* ───────── compartir listas: un .zip con la lista y sus archivos ───────── */
@@ -2671,6 +2842,8 @@ function bindUI(){
       case 'remove-demos': removeDemos(); break;
       case 'import-pack': $('#pack-in').click(); break;
       case 'share-pl': shareSheet(S.plId); break;
+      case 'pl-offline': setPlOffline(S.plId, !offlinePls().has(S.plId)); break;
+      case 'free-space': freeSpace(); break;
       case 'new-pl': nameSheet({ title: 'Nueva lista', ok: 'Crear lista', onSave: async v => { const p = await createPlaylist(v); openPlaylist(p.id); } }); break;
       case 'open-pl': openPlaylist(a.dataset.pl); break;
       case 'pl-menu': plMenu(a.dataset.pl); break;
@@ -2687,6 +2860,8 @@ function bindUI(){
       case 'export': exportBackup(); break;
       case 'import-backup': $('#backup-in').click(); break;
       case 'wipe': wipeAll(); break;
+      case 'set-autodl': S.settings.autoDl = a.dataset.v; saveSettings(); render(); ensureOffline(); break;
+      case 'convert-all': convertAll(); break;
       case 'gd-save-client': { const v = ($('#gd-client')?.value || '').trim(); if (!/\.apps\.googleusercontent\.com$/.test(v)){ toast('Ese no parece un ID de cliente: debe terminar en .apps.googleusercontent.com'); break; } S.settings.driveClientId = v; saveSettings(); render(); toast('ID guardado. Ahora pulsa «Conectar».'); break; }
       case 'gd-connect': { const f = ($('#gd-folder')?.value || '').trim(); if (f) S.settings.driveFolder = f.slice(0, 80); S.settings.driveOn = true; saveSettings(); syncDrive({ interactive: true, first: true }); render(); break; }
       case 'gd-sync': syncDrive({ interactive: true }); break;
