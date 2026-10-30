@@ -349,12 +349,20 @@ body.is-playing .now .eq i{animation-name:eq2}
 .lp-head .icon-btn{position:relative}
 .lp-head .badge1{position:absolute;right:7px;bottom:7px;font:9px var(--f-panel);color:var(--rec)}
 .np-listpanel .rows{padding-top:2px}
+.ov .ov-theater{display:none}
 @media (min-width:1000px){
-  .np[data-layout="list"] .np-inner{max-width:1320px;display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,400px);grid-template-rows:auto auto auto auto minmax(0,1fr);column-gap:24px;row-gap:12px;align-content:start}
-  .np[data-layout="list"] .np-head{grid-column:1/-1}
-  .np[data-layout="list"] .np-stage,.np[data-layout="list"] .np-titles,.np[data-layout="list"] .np-chips{grid-column:1;margin:0}
-  .np[data-layout="list"] .np-stage{border-radius:14px;max-height:calc(100vh - 230px)}
+  .np[data-layout="list"] .np-inner{max-width:1640px;container-type:inline-size;display:grid;grid-template-columns:minmax(0,1fr) 400px;grid-template-rows:auto auto auto auto minmax(0,1fr);column-gap:24px;row-gap:12px;align-content:start}
+  .np[data-layout="list"] .np-head{grid-column:1/-1;grid-row:1}
+  .np[data-layout="list"] .np-stage{grid-column:1;grid-row:2;margin:0;border-radius:14px;aspect-ratio:auto;height:min(calc((100cqw - 424px) * 9 / 16), calc(100dvh - 210px));min-height:220px}
+  .np[data-layout="list"] .np-titles{grid-column:1;grid-row:3;margin:0}
+  .np[data-layout="list"] .np-chips{grid-column:1;grid-row:4;margin:0}
   .np[data-layout="list"] .np-listpanel{grid-column:2;grid-row:2/6;margin:0 0 16px;border-radius:16px;padding:0 12px 12px;box-shadow:none;border:1px solid var(--line)}
+  .np[data-layout="list"] .ov .ov-theater{display:grid;position:absolute;right:50px;bottom:4px;background:none;width:44px;height:44px}
+  /* modo teatro: el vídeo ocupa todo el ancho y la lista queda debajo */
+  .np.theater[data-layout="list"] .np-inner{max-width:none;overflow-y:auto;grid-template-rows:auto auto auto auto auto;padding-bottom:16px}
+  .np.theater[data-layout="list"] .np-stage{grid-column:1/-1;margin:0;border-radius:12px;height:min(calc(100cqw * 9 / 16), calc(100dvh - 120px))}
+  .np.theater[data-layout="list"] .np-titles,.np.theater[data-layout="list"] .np-chips{max-width:900px}
+  .np.theater[data-layout="list"] .np-listpanel{grid-row:3/6;height:calc(100dvh - 140px);margin-bottom:0}
 }
 .np-listpanel .row{background:var(--panel)}
 
@@ -421,7 +429,8 @@ body.is-playing .now .eq i{animation-name:eq2}
           <button id="ov-next" type="button" aria-label="Siguiente"></button>
         </div>
         <span class="ov-time" id="ov-time">0:00 / 0:00</span>
-        <button class="ov-full" id="ov-full" type="button" aria-label="Pantalla completa"></button>
+        <button class="ov-theater" id="ov-theater" type="button" aria-label="Modo teatro (T)"></button>
+        <button class="ov-full" id="ov-full" type="button" aria-label="Pantalla completa (F)"></button>
       </div>
       <div class="ov-bar" id="ov-bar" role="slider" tabindex="0" aria-label="Posición" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="ov-fill"></i><b id="ov-dot"></b></div>
     </div>
@@ -539,6 +548,8 @@ const ICONS = {
   drag:'<path d="M5 9.5h14M5 14.5h14"/>',
   expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   shrink:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
+  theater:'<rect x="2" y="6.5" width="20" height="11" rx="1.5"/>',
+  theaterOff:'<rect x="5" y="8" width="14" height="8" rx="1.5"/>',
   vlist:'<rect x="3" y="4" width="8" height="6" rx="1.5"/><rect x="3" y="14" width="8" height="6" rx="1.5"/><path d="M14 6h7M14 9h4M14 16h7M14 19h4"/>',
 };
 const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
@@ -1443,6 +1454,7 @@ function showOv(v = true){
 }
 function applyLayout(){
   const np = $('#np'); np.dataset.layout = listMode() ? 'list' : 'deck';
+  applyTheater();
   const b = $('#np-layout');
   b.innerHTML = icon(listMode() ? 'gauge' : 'vlist');
   b.setAttribute('aria-label', listMode() ? 'Ver vúmetros' : 'Ver lista');
@@ -1451,6 +1463,12 @@ function applyLayout(){
   else requestAnimationFrame(() => { sizeCanvases(); startLCD(); });
   requestAnimationFrame(setupMarquee);
 }
+function applyTheater(){
+  const on = !!S.settings.theater; $('#np').classList.toggle('theater', on);
+  const b = $('#ov-theater'); b.innerHTML = icon(on ? 'theaterOff' : 'theater');
+  b.setAttribute('aria-label', on ? 'Salir del modo teatro (T)' : 'Modo teatro (T)'); b.title = on ? 'Vista normal (T)' : 'Modo teatro (T)';
+}
+function toggleTheater(){ S.settings.theater = !S.settings.theater; saveSettings(); applyTheater(); showOv(true); if (S.settings.theater) $('.np-inner').scrollTop = 0; }
 function setLayout(v){ S.settings.npLayout = v; saveSettings(); applyLayout(); }
 function flashSeek(side){
   const el = $(side === 'l' ? '#ov-sl' : '#ov-sr');
@@ -2437,6 +2455,7 @@ function bindUI(){
   $('#ov-next').addEventListener('click', () => { next(); showOv(true); });
   $('#ov-play').addEventListener('click', () => { buzz(10); togglePlay(); });
   $('#ov-full').addEventListener('click', toggleFull);
+  $('#ov-theater').addEventListener('click', toggleTheater);
   document.addEventListener('fullscreenchange', () => {
     const fs = !!document.fullscreenElement;
     $('#ov-full').innerHTML = icon(fs ? 'shrink' : 'expand');
@@ -2570,6 +2589,9 @@ function bindUI(){
     else if (e.key === 'ArrowRight' && e.target.id !== 'wave'){ e.shiftKey ? next() : seekBy(10); }
     else if (e.key === 'ArrowLeft' && e.target.id !== 'wave'){ e.shiftKey ? prev() : seekBy(-10); }
     else if (e.key === '/'){ e.preventDefault(); $('#btn-search').click(); }
+    else if ((e.key === 't' || e.key === 'T') && npOpen() && listMode()) toggleTheater();
+    else if ((e.key === 'f' || e.key === 'F') && npOpen() && listMode()) toggleFull();
+    else if (e.key === 'Escape' && npOpen() && !document.fullscreenElement && !e.target.closest('.sheet-wrap')) closeNP();
   });
 
   window.addEventListener('dragover', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')){ e.preventDefault(); document.body.classList.add('drop'); } });
