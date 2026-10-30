@@ -1,5 +1,5 @@
 /* Pletina · service worker: funciona sin conexión y recibe archivos compartidos */
-const VERSION = 'pletina-v10';
+const VERSION = 'pletina-v11';
 const FONTS = 'pletina-fonts';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
@@ -35,6 +35,11 @@ self.addEventListener('fetch', e => {
   }
 
   if (url.origin === location.origin) {
+    // El manifiesto siempre de la red (si hay), para que Chrome vea los cambios de la app
+    if (url.pathname.endsWith('/manifest.webmanifest')) {
+      e.respondWith(fetch(req).then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return res; }).catch(() => caches.match(req)));
+      return;
+    }
     if (req.mode === 'navigate') {
       // Red primero para recibir actualizaciones; caché si no hay conexión
       e.respondWith(

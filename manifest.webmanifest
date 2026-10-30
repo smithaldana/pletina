@@ -3,7 +3,7 @@
   "short_name": "Pletina",
   "description": "Tu reproductor de MP3 y MP4: listas, cola y vúmetros, sin anuncios y sin conexión.",
   "lang": "es",
-  "id": "/pletina/",
+  "id": "/pletina/app",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
