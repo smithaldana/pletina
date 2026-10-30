@@ -350,6 +350,7 @@ body.is-playing .now .eq i{animation-name:eq2}
 .lp-head .badge1{position:absolute;right:7px;bottom:7px;font:9px var(--f-panel);color:var(--rec)}
 .np-listpanel .rows{padding-top:2px}
 .ov .ov-theater{display:none}
+.ov .ov-pip{position:absolute;right:50px;bottom:4px;background:none;width:44px;height:44px}
 .ov-vol{display:none}
 @media (min-width:1000px){
   .np[data-layout="list"] .np-inner{max-width:1640px;container-type:inline-size;display:grid;grid-template-columns:minmax(0,1fr) 400px;grid-template-rows:auto auto auto auto minmax(0,1fr);column-gap:24px;row-gap:12px;align-content:start}
@@ -359,12 +360,24 @@ body.is-playing .now .eq i{animation-name:eq2}
   .np[data-layout="list"] .np-chips{grid-column:1;grid-row:4;margin:0}
   .np[data-layout="list"] .np-listpanel{grid-column:2;grid-row:2/6;margin:0 0 16px;border-radius:16px;padding:0 12px 12px;box-shadow:none;border:1px solid var(--line)}
   .np[data-layout="list"] .ov .ov-theater{display:grid;position:absolute;right:50px;bottom:4px;background:none;width:44px;height:44px}
+  .np[data-layout="list"] .ov .ov-pip{right:94px}
   /* modo teatro: el vídeo ocupa todo el ancho y la lista queda debajo */
   .np.theater[data-layout="list"] .np-inner{max-width:none;overflow-y:auto;grid-template-rows:auto auto auto auto auto;padding-bottom:16px}
   .np.theater[data-layout="list"] .np-stage{grid-column:1/-1;margin:0;border-radius:12px;height:min(calc(100cqw * 9 / 16), calc(100dvh - 120px))}
   .np.theater[data-layout="list"] .np-titles,.np.theater[data-layout="list"] .np-chips{max-width:900px}
   .np.theater[data-layout="list"] .np-listpanel{grid-row:3/6;height:calc(100dvh - 140px);margin-bottom:0}
 }
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px 12px;margin-top:6px}
+.card{display:flex;flex-direction:column;gap:4px;border:0;background:none;text-align:left;padding:0;min-width:0;color:var(--ink)}
+.card .cv{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--well);box-shadow:0 6px 16px var(--shade);margin-bottom:4px}
+.card.artist .cv{border-radius:50%}
+.card .cv img{width:100%;height:100%;object-fit:cover;display:block}
+.card .cv img:not([src]){visibility:hidden}
+.card strong{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card.artist strong,.card.artist small{text-align:center}
+.card small{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card:active .cv{transform:scale(.98)}
+.toolbar .seg.small{flex:0 1 auto}
 .np-listpanel .row{background:var(--panel)}
 .lp-mini{display:none}
 @media (min-width:1000px){ #lp-collapse{display:none} }
@@ -391,7 +404,9 @@ body.is-playing .now .eq i{animation-name:eq2}
   .np[data-layout="list"] .ov button:hover{background:rgba(255,255,255,.14)}
   .np[data-layout="list"] .ov button .ic,.np[data-layout="list"] .ov #ov-play .ic{width:24px;height:24px}
   .np[data-layout="list"] .ov-time{position:static;margin:0 10px 13px 6px;font-size:13.5px}
-  .np[data-layout="list"] .ov .ov-theater{position:static;margin-left:auto;width:42px;height:42px}
+  .np[data-layout="list"] .ov .ov-pip{position:static;margin-left:auto;width:42px;height:42px}
+  .np[data-layout="list"] .ov .ov-pip[hidden] + .ov-theater{margin-left:auto}
+  .np[data-layout="list"] .ov .ov-theater{position:static;width:42px;height:42px}
   .np[data-layout="list"] .ov-vol{display:flex;align-items:center}
   #ov-volr{width:0;opacity:0;margin:0;accent-color:#fff;transition:width .18s,opacity .18s,margin .18s;cursor:pointer}
   .ov-vol:hover #ov-volr,#ov-volr:focus-visible,#ov-volr:active{width:84px;opacity:1;margin:0 8px 0 2px}
@@ -401,7 +416,7 @@ body.is-playing .now .eq i{animation-name:eq2}
   .np[data-layout="list"] .np-stage:not(.show-ov){cursor:none}
 }
 @media (hover:hover) and (pointer:fine) and (max-width:999px){
-  .np[data-layout="list"] .ov .ov-full{margin-left:auto}
+  .np[data-layout="list"] .ov .ov-pip[hidden] ~ .ov-full{margin-left:auto}
 }
 
 @media (min-width:700px){
@@ -468,6 +483,7 @@ body.is-playing .now .eq i{animation-name:eq2}
         </div>
         <div class="ov-vol"><button id="ov-mute" type="button" aria-label="Silenciar (M)"></button><input type="range" id="ov-volr" min="0" max="1" step="0.02" value="1" aria-label="Volumen"></div>
         <span class="ov-time" id="ov-time">0:00 / 0:00</span>
+        <button class="ov-pip" id="ov-pip" type="button" aria-label="Ventana flotante (P)" hidden></button>
         <button class="ov-theater" id="ov-theater" type="button" aria-label="Modo teatro (T)"></button>
         <button class="ov-full" id="ov-full" type="button" aria-label="Pantalla completa (F)"></button>
       </div>
@@ -510,6 +526,7 @@ body.is-playing .now .eq i{animation-name:eq2}
         <div class="lp-t"><strong id="lp-title">Biblioteca</strong><span id="lp-sub"></span></div>
         <button class="icon-btn" id="lp-shuf" type="button" aria-pressed="false" aria-label="Aleatorio"></button>
         <button class="icon-btn" id="lp-rep" type="button" aria-pressed="false" aria-label="Repetir"></button>
+        <button class="icon-btn" id="lp-mix" type="button" aria-pressed="false" aria-label="Mezcla automática"></button>
         <button class="icon-btn" id="lp-collapse" type="button" aria-label="Recoger la lista"></button>
       </div>
       <ul class="rows" id="np-list" data-list="npq" data-sortable="npq"></ul>
@@ -596,6 +613,8 @@ const ICONS = {
   vol:'<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
   volLow:'<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6"/>',
   mute:'<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
+  mix:'<path d="M7 8.5c-2 0-3.5 1.6-3.5 3.5S5 15.5 7 15.5c3.4 0 6.6-7 10-7 2 0 3.5 1.6 3.5 3.5S19 15.5 17 15.5c-3.4 0-6.6-7-10-7z"/>',
+  pip:'<rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11.5" width="6.5" height="5" rx="1" fill="currentColor"/>',
   up:'<path d="M6 15l6-6 6 6"/>',
   theater:'<rect x="2" y="6.5" width="20" height="11" rx="1.5"/>',
   theaterOff:'<rect x="5" y="8" width="14" height="8" rx="1.5"/>',
@@ -637,7 +656,7 @@ const DB = {
 /* ───────── estado ───────── */
 const S = {
   tracks: new Map(), playlists: new Map(),
-  settings: { theme: 'system', audioOnly: false, speed: 1, filter: 'all', sort: 'added', npLayout: 'list' },
+  settings: { theme: 'system', audioOnly: false, speed: 1, filter: 'all', sort: 'added', npLayout: 'list', libView: 'songs', autoMix: true, normalize: true, xfade: 4, autoDl: 'none' },
   queue: [], orig: null, index: -1, source: { kind: 'library', label: 'Biblioteca' },
   shuffle: false, repeat: 'off',
   currentId: null, url: null, wantPlay: false, counted: false, resumeAt: 0,
@@ -646,6 +665,7 @@ const S = {
   importing: false, seeding: false, installEvt: null, showTotal: false,
 };
 const audio = $('#engine-audio');
+const audio2 = document.createElement('audio'); audio2.preload = 'auto'; audio2.id = 'engine-audio2'; document.body.appendChild(audio2);
 const video = $('#np-video');
 let engine = audio;
 let loadToken = 0;
@@ -912,7 +932,7 @@ async function analyzeTrack(t){
   const ab = await blob.arrayBuffer();
   const ctx = new OAC(2, 8000, 8000);
   const buf = await new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); });
-  t.env = envFromBuffer(buf); await saveTrack(t);
+  t.env = envFromBuffer(buf); t.gain = null; await saveTrack(t);
 }
 const anQ = []; let anBusy = false;
 function queueAnalysis(ids){ for (const id of ids) if (!anQ.includes(id)) anQ.push(id); runAnalysis(); }
@@ -1111,41 +1131,146 @@ async function seedDemos(){
 async function removeDemos(){ const ids = [...S.tracks.values()].filter(t => t.demo).map(t => t.id); if (ids.length){ await deleteTracks(ids); toast('Pistas de ejemplo quitadas.'); } }
 
 /* ───────── reproducción ───────── */
-const wantsVideo = t => !!t && t.kind === 'video' && !S.settings.audioOnly && document.visibilityState === 'visible' && npOpen();
+const inPiP = () => !!document.pictureInPictureElement && document.pictureInPictureElement === video;
+const wantsVideo = t => !!t && t.kind === 'video' && !S.settings.audioOnly && (inPiP() || (document.visibilityState === 'visible' && npOpen()));
 const duration = () => { const d = engine.duration; return isFinite(d) && d > 0 ? d : (cur()?.duration || 0); };
 const position = () => engine.getAttribute('src') ? engine.currentTime : (S.resumeAt || 0);
 
-async function loadTrack(id, { autoplay = true, at = 0 } = {}){
+/* fuentes: archivo guardado en el dispositivo o, si no está, streaming desde Drive */
+async function sourceFor(t){
+  let blob = null; try { blob = await DB.get('blobs', t.id); } catch {}
+  if (blob) return { url: URL.createObjectURL(blob), revoke: true, local: true };
+  if (t.driveId && typeof streamURL === 'function'){ const u = await streamURL(t); if (u) return { url: u, revoke: false, local: false }; }
+  return null;
+}
+function clearEl(el){ el.pause(); if (el.getAttribute('src')){ el.removeAttribute('src'); try { el.load(); } catch {} } }
+function releaseSrc(s){ if (s && s.revoke) URL.revokeObjectURL(s.url); }
+/* volumen: el del usuario × la ganancia que iguala esta pista */
+function trackGain(t){
+  if (!t || !S.settings.normalize) return 1;
+  if (t.gain != null) return t.gain;
+  const e = t.env; if (!e || !e.length) return 1;
+  let sum = 0, n = 0;
+  for (let i = 0; i < e.length; i++){ const db = e[i] / 255 * 48 - 48; if (db > -40){ sum += Math.pow(10, db / 10); n++; } }
+  if (!n) return (t.gain = 1);
+  const L = 10 * Math.log10(sum / n), g = clamp(-17 - L, -12, 0);
+  return (t.gain = Math.pow(10, g / 20));
+}
+const userVol = () => S.settings.volume ?? 1;
+const elVol = t => clamp(userVol() * trackGain(t), 0, 1);
+/* fundido cruzado: la pista anterior sigue sonando en otro reproductor mientras baja */
+let tail = null;
+function stopTail(){ if (!tail) return; clearInterval(tail.iv); clearEl(tail.el); releaseSrc(tail.src); tail = null; try { engine.volume = elVol(cur()); } catch {} }
+function startTail(el, srcObj, secs, newT){
+  stopTail();
+  const v0 = el.volume, v1 = elVol(newT), t0 = performance.now();
+  tail = { el, src: srcObj, iv: 0 };
+  engine.volume = 0;
+  tail.iv = setInterval(() => {
+    const p = clamp((performance.now() - t0) / (secs * 1000), 0, 1);
+    try { el.volume = v0 * Math.cos(p * Math.PI / 2); engine.volume = v1 * Math.sin(p * Math.PI / 2); } catch {}
+    if (p >= 1) stopTail();
+  }, 50);
+}
+const otherAudio = () => engine === audio ? audio2 : audio;
+async function loadTrack(id, { autoplay = true, at = 0, xfade = 0 } = {}){
   const t = S.tracks.get(id); if (!t) return;
   const token = ++loadToken;
-  let blob = null; try { blob = await DB.get('blobs', id); } catch {}
-  if (token !== loadToken) return;
-  if (!blob){ toast(`No encuentro el archivo de «${t.title}».`); return; }
-  if (S.url) URL.revokeObjectURL(S.url);
-  S.url = URL.createObjectURL(blob); S.currentId = id; S.counted = false; S.resumeAt = 0;
-  const useV = wantsVideo(t), old = useV ? audio : video;
-  old.pause(); if (old.getAttribute('src')){ old.removeAttribute('src'); try { old.load(); } catch {} }
-  engine = useV ? video : audio;
-  engine.defaultPlaybackRate = S.settings.speed; engine.src = S.url; engine.playbackRate = S.settings.speed;
+  const srcObj = await sourceFor(t);
+  if (token !== loadToken){ releaseSrc(srcObj); return; }
+  if (!srcObj){ toast(navigator.onLine === false ? `«${t.title}» no está descargada y no hay conexión.` : `No encuentro el archivo de «${t.title}».`); if (autoplay && S.queue.length > 1 && !S.skipGuard){ S.skipGuard = true; setTimeout(() => { S.skipGuard = false; next(true); }, 600); } return; }
+  const prev = { el: engine, src: S.src, id: S.currentId, index: S.index };
+  const useV = wantsVideo(t);
+  let target;
+  const doX = xfade > 0 && !useV && engine !== video && engine.getAttribute('src') && !engine.paused;
+  if (doX){ target = otherAudio(); clearEl(target); }
+  else {
+    stopTail();
+    target = useV ? video : (engine === video ? audio : engine);
+    for (const el of [audio, audio2, video]) if (el !== target) clearEl(el);
+    releaseSrc(S.src);
+  }
+  S.src = srcObj; S.url = srcObj.url; S.currentId = id; S.counted = false; S.resumeAt = 0;
+  engine = target;
+  engine.defaultPlaybackRate = S.settings.speed; engine.src = srcObj.url; engine.playbackRate = S.settings.speed;
+  engine.muted = !!S.settings.muted; engine.volume = elVol(t);
   if (at > 0){ const f = () => { try { engine.currentTime = Math.min(at, Math.max(0, (engine.duration || at + 1) - 0.5)); } catch {} }; if (engine.readyState >= 1) f(); else engine.addEventListener('loadedmetadata', f, { once: true }); }
   if (t.kind === 'video' && t.w && t.h) document.documentElement.style.setProperty('--ar', (t.w / t.h).toFixed(4));
   S.wantPlay = autoplay;
+  if (doX) startTail(prev.el, prev.src, xfade, t);
   updateTrackUI(); updateMS(t);
-  if (autoplay){ try { await engine.play(); } catch (e) { if (e?.name !== 'AbortError') S.wantPlay = false; } }
+  if (autoplay){
+    try { await engine.play(); }
+    catch (e) {
+      if (doX && e?.name !== 'AbortError'){
+        /* el navegador no dejó arrancar el segundo reproductor: se deshace el fundido y sigue normal */
+        clearInterval(tail?.iv); tail = null; clearEl(engine); releaseSrc(srcObj);
+        engine = prev.el; S.src = prev.src; S.url = prev.src?.url; S.currentId = prev.id; S.index = prev.index;
+        try { engine.volume = elVol(cur()); } catch {}
+        S.noXfade = true; updateTrackUI(); updatePlayState(); return;
+      }
+      if (e?.name !== 'AbortError') S.wantPlay = false;
+    }
+  }
   updatePlayState(); saveStateSoon();
-  if (t.env === undefined) prioritizeAnalysis(id);
+  if (t.env === undefined && srcObj.local) prioritizeAnalysis(id);
+  extendMix();
+  if (typeof prefetchAhead === 'function') prefetchAhead();
 }
 function switchEngine(){
   const t = cur(); if (!t) return;
-  const want = wantsVideo(t) ? video : audio;
+  const want = wantsVideo(t) ? video : (engine === video ? (tail?.el === audio ? audio2 : audio) : engine);
   if (want === engine) return;
   if (!engine.getAttribute('src') || !S.url){ engine = want; return; }
   const time = engine.currentTime, playing = S.wantPlay, old = engine;
   engine = want;
-  old.pause(); old.removeAttribute('src'); try { old.load(); } catch {}
+  clearEl(old);
   engine.defaultPlaybackRate = S.settings.speed; engine.src = S.url; engine.playbackRate = S.settings.speed;
+  engine.muted = !!S.settings.muted; engine.volume = elVol(t);
   const go = () => { try { engine.currentTime = time; } catch {} if (playing) engine.play().catch(() => {}); };
   if (engine.readyState >= 1) go(); else engine.addEventListener('loadedmetadata', go, { once: true });
+}
+/* mezcla automática: al acercarse el final, añade canciones parecidas */
+function extendMix(force = false){
+  if (!S.settings.autoMix || S.repeat !== 'off' || !S.queue.length || !S.currentId) return false;
+  if (!force && S.index < S.queue.length - 2) return false;
+  const K = Math.max(1, Math.min(60, Math.floor(S.tracks.size * 0.6)));
+  const recent = new Set(S.queue.slice(-K)); recent.add(S.currentId);
+  const seeds = S.queue.slice(Math.max(0, S.index - 4), S.index + 1).map(id => S.tracks.get(id)).filter(Boolean);
+  if (!seeds.length) return false;
+  const sArt = new Set(seeds.map(t => primaryArtist(t.artist))), sAlb = new Set(seeds.filter(t => t.album).map(t => albumKey(t.album)));
+  const sPl = new Set(); for (const p of S.playlists.values()) if (seeds.some(t => p.items.includes(t.id))) sPl.add(p.id);
+  const vidShare = seeds.filter(t => t.kind === 'video').length / seeds.length, now = Date.now(), online = navigator.onLine !== false;
+  const cands = [];
+  for (const t of S.tracks.values()){
+    if (recent.has(t.id) || t.demo && S.tracks.size > 6) continue;
+    if (t.cloud && !(online && typeof tokValid === 'function' && tokValid())) continue;
+    let s = Math.random() * 3;
+    if (sArt.has(primaryArtist(t.artist))) s += 6;
+    if (t.album && sAlb.has(albumKey(t.album))) s += 3;
+    for (const p of S.playlists.values()) if (sPl.has(p.id) && p.items.includes(t.id)) s += 3;
+    if (t.fav) s += 2;
+    s += Math.log2(1 + (t.plays || 0));
+    if (t.lastPlayed && now - t.lastPlayed < 3 * 3600e3) s -= 5;
+    if ((t.kind === 'video') === (vidShare >= 0.5)) s += 1;
+    cands.push([s, t.id]);
+  }
+  if (!cands.length) return false;
+  cands.sort((a, b) => b[0] - a[0]);
+  const add = cands.slice(0, 10).map(x => x[1]);
+  S.queue.push(...add); if (S.orig) S.orig.push(...add);
+  if (!S.mixNoticed){ S.mixNoticed = true; toast(`Mezcla automática: ${plural(add.length, 'canción añadida', 'canciones añadidas')} a la cola.`); }
+  saveStateSoon(); renderNPList(); if (S.view === 'queue') render();
+  return true;
+}
+function crossfadeNext(){
+  const xf = +S.settings.xfade || 0;
+  if (!xf || S.noXfade || tail || engine === video || S.repeat === 'one' || S.sleepEnd) return;
+  extendMix();
+  let i = S.index + 1;
+  if (i >= S.queue.length){ if (S.repeat === 'all') i = 0; else return; }
+  const nt = S.tracks.get(S.queue[i]); if (!nt || wantsVideo(nt)) return;
+  countPlay(); S.index = i; loadTrack(S.queue[i], { autoplay: true, xfade: xf });
 }
 async function play(){
   if (!S.currentId){
@@ -1158,7 +1283,7 @@ async function play(){
   try { await engine.play(); } catch { S.wantPlay = false; }
   updatePlayState();
 }
-function pause(){ S.wantPlay = false; engine.pause(); updatePlayState(); saveStateNow(); }
+function pause(){ S.wantPlay = false; stopTail(); engine.pause(); updatePlayState(); saveStateNow(); }
 const isPlaying = () => S.wantPlay && !engine.paused;
 function togglePlay(){ isPlaying() ? pause() : play(); }
 function seekTo(sec){
@@ -1172,6 +1297,7 @@ function next(auto = false){
   let i = S.index + 1;
   if (i >= S.queue.length){
     if (S.repeat === 'all') i = 0;
+    else if (extendMix(true)) i = S.index + 1;
     else { if (auto){ S.wantPlay = false; try { engine.currentTime = 0; } catch {} updatePlayState(); } else toast('Fin de la cola.'); return; }
   }
   S.index = i; loadTrack(S.queue[i], { autoplay: auto || S.wantPlay });
@@ -1257,7 +1383,7 @@ function cycleSpeed(){
 }
 function setSpeed(v){
   S.settings.speed = v; saveSettings();
-  for (const el of [audio, video]){ el.defaultPlaybackRate = v; el.playbackRate = v; }
+  for (const el of [audio, audio2, video]){ el.defaultPlaybackRate = v; el.playbackRate = v; }
   updateChips(); updateLCDText();
 }
 
@@ -1306,8 +1432,24 @@ const SMART = {
   top: { name: 'Más escuchadas', ic: 'bars', ids: topIds, empty: 'Aquí aparecen las canciones que escuchas más de 30 segundos.' },
   recent: { name: 'Recientes', ic: 'clock', ids: recentIds, empty: 'Las últimas 50 pistas que añadiste.' },
 };
+const primaryArtist = a => (String(a || '').split(/\s*(?:,|;|&|\/|\bfeat\.?|\bft\.?|\bx\b|\bcon\b|\bwith\b)\s*/i)[0] || '').trim() || 'Artista desconocido';
+const albumKey = a => norm(a).replace(/\s*[\[(].*?[\])]\s*/g, ' ').trim();
+function groupBy(ids, keyFn){
+  const m = new Map();
+  for (const id of ids){ const t = S.tracks.get(id); if (!t) continue; const k = keyFn(t); if (!k) continue; if (!m.has(k)) m.set(k, []); m.get(k).push(id); }
+  return m;
+}
+const byAlbumOrder = (a, b) => { const x = S.tracks.get(a), y = S.tracks.get(b); return coll.compare(x.album || '~', y.album || '~') || coll.compare(x.fileName, y.fileName); };
+function artistIds(name){ return [...S.tracks.values()].filter(t => primaryArtist(t.artist) === name).map(t => t.id).sort(byAlbumOrder); }
+function albumIds(key){ return [...S.tracks.values()].filter(t => t.album && albumKey(t.album) === key).map(t => t.id).sort((a, b) => coll.compare(S.tracks.get(a).fileName, S.tracks.get(b).fileName)); }
+function albumArtist(ids){
+  const c = new Map(); for (const id of ids){ const a = primaryArtist(S.tracks.get(id)?.artist); c.set(a, (c.get(a) || 0) + 1); }
+  const top = [...c].sort((a, b) => b[1] - a[1]); return top.length > 2 && top[0][1] < ids.length / 2 ? 'Varios artistas' : (top[0]?.[0] || '');
+}
 function getPl(id){
   if (id && id.startsWith('smart:')){ const k = id.slice(6), s = SMART[k]; return s ? { id, name: s.name, items: s.ids(), smart: true, empty: s.empty } : null; }
+  if (id && id.startsWith('artist:')){ const name = decodeURIComponent(id.slice(7)), items = artistIds(name); return { id, name, items, smart: true, kindLabel: 'Artista', fromLib: true, empty: 'Ya no quedan canciones de este artista.' }; }
+  if (id && id.startsWith('album:')){ const key = decodeURIComponent(id.slice(6)), items = albumIds(key), t = S.tracks.get(items[0]); return { id, name: t?.album || 'Álbum', items, smart: true, kindLabel: 'Álbum · ' + albumArtist(items), fromLib: true, empty: 'Ya no quedan canciones de este álbum.' }; }
   return S.playlists.get(id) || null;
 }
 const durOf = ids => ids.reduce((a, id) => a + (S.tracks.get(id)?.duration || 0), 0);
@@ -1356,6 +1498,19 @@ function viewLibrary(){
   else if (demos && demos === all.length) h += `<div class="note"><div><strong>Tres cintas de ejemplo</strong><p>Las compuso la app en tu dispositivo para que pruebes las agujas, la forma de onda y las listas. Quítalas cuando añadas tu música.</p></div><button class="btn btn-ghost" data-act="remove-demos" type="button">Quitar ejemplos</button></div>`;
   if (all.length) h += `<div class="toolbar"><div class="seg" role="group" aria-label="Filtrar">${[['all', 'Todo'], ['audio', 'Música'], ['video', 'Vídeos'], ['fav', 'Favoritas']].map(([k, l]) => `<button data-act="filter" data-v="${k}" type="button" aria-pressed="${S.settings.filter === k}">${l}</button>`).join('')}</div></div>`;
   if (all.length && !ids.length) h += `<p class="empty-q">${S.query ? `Nada coincide con «${esc(S.query)}».` : 'No hay pistas con este filtro.'}</p>`;
+  if (all.length) h = h.replace('<div class="toolbar">', `<div class="toolbar"><div class="seg small" role="group" aria-label="Ver por">${[['songs', 'Canciones'], ['artists', 'Artistas'], ['albums', 'Álbumes']].map(([k, l]) => `<button data-act="lib-view" data-v="${k}" type="button" aria-pressed="${(S.settings.libView || 'songs') === k}">${l}</button>`).join('')}</div></div><div class="toolbar">`);
+  if (S.settings.libView === 'artists' || S.settings.libView === 'albums'){
+    const isArt = S.settings.libView === 'artists';
+    const groups = isArt ? groupBy(ids, t => primaryArtist(t.artist)) : groupBy(ids, t => t.album ? albumKey(t.album) : '');
+    const list = [...groups].sort((a, b) => coll.compare(isArt ? a[0] : S.tracks.get(a[1][0]).album, isArt ? b[0] : S.tracks.get(b[1][0]).album));
+    if (!list.length) return h + `<p class="empty-q">${isArt ? 'No hay artistas con este filtro.' : 'Ninguna pista tiene álbum todavía. Puedes ponérselo con «Editar información», o se toma de la subcarpeta de Drive.'}</p>`;
+    const noAlbum = isArt ? 0 : ids.filter(id => !S.tracks.get(id).album).length;
+    return h + `<div class="cards">${list.map(([k, its]) => {
+      const top = its.slice().sort((a, b) => (S.tracks.get(b).plays || 0) - (S.tracks.get(a).plays || 0))[0], t0 = S.tracks.get(its[0]);
+      const pid = (isArt ? 'artist:' : 'album:') + encodeURIComponent(k);
+      return `<button class="card${isArt ? ' artist' : ''}" data-act="open-pl" data-pl="${esc(pid)}" type="button"><span class="cv"${S.tracks.get(top).tint ? ` style="background:${S.tracks.get(top).tint}"` : ''}><img data-cover="${top}" alt=""></span><strong>${esc(isArt ? k : t0.album)}</strong><small>${isArt ? plural(its.length, 'canción', 'canciones') : esc(albumArtist(its)) + ' · ' + its.length}</small></button>`;
+    }).join('')}</div>${noAlbum ? `<p class="hint" style="margin-top:14px">${plural(noAlbum, 'pista sin álbum', 'pistas sin álbum')} no aparecen aquí.</p>` : ''}`;
+  }
   const wide = S.settings.filter === 'video';
   h += `<ul class="rows" data-list="ctx">${ids.map((id, i) => rowHTML(S.tracks.get(id), { index: i, wide })).join('')}</ul>`;
   return h;
@@ -1375,8 +1530,8 @@ function viewPlaylist(){
   const p = getPl(S.plId); if (!p){ S.view = 'lists'; return viewLists(); }
   const items = p.items.filter(id => S.tracks.has(id));
   S.ctx = { ids: items, source: { kind: 'playlist', id: p.id, label: p.name } };
-  let h = `<button class="back" data-act="back-lists" type="button">${icon('back')}Listas</button>
-  <div class="pl-head">${mosaic(items, 'big')}<div class="pl-info"><span class="eyebrow">${p.smart ? 'Lista automática' : 'Lista'}</span><h1>${esc(p.name)}</h1><span class="s">${plural(items.length, 'pista', 'pistas')} · ${fmtTotal(durOf(items))}</span></div></div>
+  let h = `<button class="back" data-act="${p.fromLib ? 'back-lib' : 'back-lists'}" type="button">${icon('back')}${p.fromLib ? 'Biblioteca' : 'Listas'}</button>
+  <div class="pl-head">${mosaic(items, 'big')}<div class="pl-info"><span class="eyebrow">${esc(p.kindLabel || (p.smart ? 'Lista automática' : 'Lista'))}</span><h1>${esc(p.name)}</h1><span class="s">${plural(items.length, 'pista', 'pistas')} · ${fmtTotal(durOf(items))}</span></div></div>
   <div class="actions">${items.length ? `<button class="btn btn-rec" data-act="play-ctx" type="button">${icon('play')}Reproducir</button><button class="btn" data-act="shuffle-ctx" type="button">${icon('shuffle')}Aleatorio</button><button class="btn" data-act="share-pl" type="button">${icon('share')}Compartir</button>` : ''}${p.smart ? '' : `<button class="btn" data-act="pl-add" type="button">${icon('plus')}Añadir canciones</button><button class="icon-btn" data-act="pl-menu" data-pl="${p.id}" type="button" aria-label="Opciones de la lista">${icon('more')}</button>`}</div>`;
   if (!items.length) h += `<p class="hint">${p.smart ? p.empty : 'Esta lista está vacía. Pulsa «Añadir canciones» para llenarla.'}</p>`;
   else if (!p.smart && items.length > 1) h += `<p class="hint" style="margin:0 0 6px;font-size:13px">Arrastra ${icon('drag')} para cambiar el orden.</p>`;
@@ -1407,6 +1562,9 @@ function viewSettings(){
   <section class="set-group"><h2>Instalar</h2><div class="set-card"><div class="set-row"><div class="lbl">${standalone ? 'Instalada en este móvil' : 'Pletina como app'}<small>${installText}</small></div>${S.installEvt ? `<button class="btn btn-rec" data-act="install" type="button">Instalar</button>` : ''}</div></div></section>
   <section class="set-group"><h2>Reproducción</h2><div class="set-card">
     <div class="set-row"><div class="lbl">Vista del reproductor<small>«Lista»: vídeo arriba y la cola debajo. «Pletina»: vúmetros y botonera.</small></div><div class="seg small" role="group" aria-label="Vista del reproductor">${[['list', 'Lista'], ['deck', 'Pletina']].map(([k, l]) => `<button data-act="np-layout" data-v="${k}" type="button" aria-pressed="${S.settings.npLayout === k}">${l}</button>`).join('')}</div></div>
+    ${sw('normalize', 'Igualar volumen', 'Baja las canciones que suenan más fuerte para que todas se oigan parecido.')}
+    <div class="set-row"><div class="lbl">Fundido entre canciones<small>La siguiente empieza mientras la anterior baja. No se aplica a vídeos en pantalla.</small></div><select id="set-xfade" aria-label="Fundido entre canciones">${[[0, 'No'], [2, '2 s'], [4, '4 s'], [6, '6 s'], [8, '8 s'], [12, '12 s']].map(([v, l]) => `<option value="${v}"${(+S.settings.xfade || 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+    ${sw('autoMix', 'Mezcla automática', 'Al acabar la cola sigue con canciones parecidas: mismo artista, tus listas, favoritas y las que más escuchas.')}
     ${sw('audioOnly', 'Vídeos en modo solo audio', 'Ahorra batería. Aunque esté apagado, al bloquear la pantalla o cerrar el reproductor el vídeo sigue sonando como audio.')}
     <div class="set-row"><div class="lbl">Velocidad<small>Útil para podcasts y clases grabadas.</small></div><select id="set-speed" aria-label="Velocidad">${[0.75, 1, 1.25, 1.5, 2].map(v => `<option value="${v}"${S.settings.speed === v ? ' selected' : ''}>×${String(v).replace('.', ',')}</option>`).join('')}</select></div>
   </div></section>
@@ -1437,7 +1595,8 @@ async function fillStorage(){
 }
 function render(){
   const v = S.view, el = $('#view');
-  $$('.tab').forEach(b => b.setAttribute('aria-current', b.dataset.view === (v === 'playlist' ? 'lists' : v) ? 'page' : 'false'));
+  const fromLib = v === 'playlist' && /^(artist|album):/.test(S.plId || '');
+  $$('.tab').forEach(b => b.setAttribute('aria-current', b.dataset.view === (v === 'playlist' ? (fromLib ? 'library' : 'lists') : v) ? 'page' : 'false'));
   if (v === 'library') el.innerHTML = viewLibrary();
   else if (v === 'lists') el.innerHTML = viewLists();
   else if (v === 'playlist') el.innerHTML = viewPlaylist();
@@ -1452,7 +1611,7 @@ function setView(v){
 }
 function openPlaylist(id){
   S.plId = id; S.view = 'playlist';
-  const fn = () => { S.plLayer = null; if (S.view === 'playlist'){ S.view = 'lists'; render(); } };
+  const fn = () => { S.plLayer = null; if (S.view === 'playlist'){ S.view = /^(artist|album):/.test(id) ? 'library' : 'lists'; render(); } };
   S.plLayer = fn; pushLayer(fn); render(); $('#view').scrollTop = 0;
 }
 
@@ -1474,6 +1633,7 @@ function updateTrackUI(){
   $('#np-art').hidden = showVid; video.hidden = !showVid;
   if (t.kind === 'video' && t.w && t.h) document.documentElement.style.setProperty('--ar', (t.w / t.h).toFixed(4));
   $('#np-bg').hidden = showVid;
+  updatePiPBtn();
   updateChips(); setupMarquee(); barsCache.clear(); markDirty(); updateTimes(); updateLCDText(); updateMiniProg();
   renderNPList(true);
   if (['library', 'lists', 'playlist', 'queue'].includes(S.view)) render();
@@ -1510,7 +1670,7 @@ function hideOvIfIdle(){
 }
 function applyVolume(){
   const v = S.settings.volume ?? 1, m = !!S.settings.muted;
-  for (const el of [audio, video]){ el.volume = v; el.muted = m; }
+  for (const el of [audio, audio2, video]){ el.muted = m; if (el !== tail?.el) el.volume = el === engine ? elVol(cur()) : v; }
   const r = $('#ov-volr'); if (r) r.value = m ? 0 : v;
   const b = $('#ov-mute'); if (b){ b.innerHTML = icon(m || v === 0 ? 'mute' : v < 0.5 ? 'volLow' : 'vol'); b.setAttribute('aria-label', m ? 'Activar sonido (M)' : 'Silenciar (M)'); }
 }
@@ -1527,6 +1687,19 @@ function applyLayout(){
   if (listMode()){ renderNPList(true); showOv(true); }
   syncLCDRun();
   requestAnimationFrame(setupMarquee);
+}
+function updatePiPBtn(){
+  const t = cur(), b = $('#ov-pip');
+  b.hidden = !(document.pictureInPictureEnabled && t && t.kind === 'video' && !S.settings.audioOnly);
+}
+async function togglePiP(){
+  try {
+    if (inPiP()){ await document.exitPictureInPicture(); return; }
+    if (engine !== video) switchEngine();
+    if (video.readyState < 1) await new Promise(r => video.addEventListener('loadedmetadata', r, { once: true }));
+    await video.requestPictureInPicture();
+    if (!S.wantPlay) play();
+  } catch { toast('La ventana flotante no está disponible en este navegador.'); }
 }
 function applyTheater(){
   const on = !!S.settings.theater; $('#np').classList.toggle('theater', on);
@@ -1596,6 +1769,8 @@ function updateModes(){
   $('#lp-rep').setAttribute('aria-pressed', String(S.repeat !== 'off'));
   $('#lp-rep').innerHTML = `${icon('repeat')}${S.repeat === 'one' ? '<span class="badge1">1</span>' : ''}`;
   $('#lp-rep').setAttribute('aria-label', $('#k-rep').getAttribute('aria-label'));
+  $('#lp-mix').setAttribute('aria-pressed', String(!!S.settings.autoMix));
+  $('#lp-mix').setAttribute('aria-label', S.settings.autoMix ? 'Mezcla automática: activada' : 'Mezcla automática: desactivada');
   if (npOpen() && listMode()) updateLpMini();
   updateLCDText();
 }
@@ -1647,6 +1822,7 @@ function onTime(){
   const now = performance.now(), d = duration(), p = engine.currentTime;
   updateTimes(); updateMiniProg();
   if (!S.counted && p > Math.min(30, (d || 60) * 0.5)) countPlay();
+  { const xf = +S.settings.xfade || 0; if (xf && S.wantPlay && !tail && engine !== video && d > xf * 2 + 4 && d - p <= xf && d - p > 0.3) crossfadeNext(); }
   if (now - lastMS > 1000){ lastMS = now; try { if (d && isFinite(d) && navigator.mediaSession?.setPositionState) navigator.mediaSession.setPositionState({ duration: d, playbackRate: engine.playbackRate || 1, position: Math.min(p, d) }); } catch {} }
   if (now - lastSave > 5000) saveStateNow();
   markDirty();
@@ -1936,8 +2112,8 @@ function sleepSheet(){
 async function deleteTracks(ids){
   const set = new Set(ids);
   if (set.has(S.currentId)){
-    S.wantPlay = false; for (const el of [audio, video]){ el.pause(); el.removeAttribute('src'); try { el.load(); } catch {} }
-    if (S.url){ URL.revokeObjectURL(S.url); S.url = null; }
+    S.wantPlay = false; for (const el of [audio, audio2, video]){ el.pause(); el.removeAttribute('src'); try { el.load(); } catch {} }
+    stopTail(); releaseSrc(S.src); S.src = null; S.url = null;
     S.currentId = null; S.index = -1; updatePlayState();
   }
   const curId = S.currentId;
@@ -1949,8 +2125,8 @@ async function deleteTracks(ids){
 }
 async function wipeAll(){
   if (!(await confirmSheet({ title: '¿Borrar toda la biblioteca?', text: 'Se eliminan de este dispositivo todas las pistas, vídeos, listas y contadores. No se puede deshacer.', ok: 'Borrar todo', danger: true }))) return;
-  S.wantPlay = false; for (const el of [audio, video]){ el.pause(); el.removeAttribute('src'); try { el.load(); } catch {} }
-  if (S.url){ URL.revokeObjectURL(S.url); S.url = null; }
+  S.wantPlay = false; for (const el of [audio, audio2, video]){ el.pause(); el.removeAttribute('src'); try { el.load(); } catch {} }
+  stopTail(); releaseSrc(S.src); S.src = null; S.url = null;
   for (const id of S.tracks.keys()) invalidateCover(id);
   await Promise.all(['tracks', 'blobs', 'covers', 'playlists'].map(s => DB.clear(s)));
   S.tracks.clear(); S.playlists.clear(); S.queue = []; S.orig = null; S.index = -1; S.currentId = null;
@@ -2499,11 +2675,13 @@ function bindUI(){
       case 'open-pl': openPlaylist(a.dataset.pl); break;
       case 'pl-menu': plMenu(a.dataset.pl); break;
       case 'pl-add': pickerSheet(S.plId); break;
+      case 'lib-view': S.settings.libView = a.dataset.v; saveSettings(); render(); break;
+      case 'back-lib': if (S.plLayer){ const f = S.plLayer; S.plLayer = null; popLayer(f); } S.view = 'library'; render(); break;
       case 'back-lists': if (S.plLayer){ const f = S.plLayer; S.plLayer = null; popLayer(f); } S.view = 'lists'; render(); break;
       case 'goto-library': setView('library'); break;
       case 'persist': try { const ok = await navigator.storage.persist(); toast(ok ? 'Protección activada.' : 'El navegador no la concedió. Instalar la app suele ayudar.'); } catch {} fillStorage(); break;
       case 'install': if (S.installEvt){ S.installEvt.prompt(); try { await S.installEvt.userChoice; } catch {} S.installEvt = null; render(); } break;
-      case 'toggle-set': { const k = a.dataset.k; S.settings[k] = !S.settings[k]; saveSettings(); a.setAttribute('aria-checked', String(S.settings[k])); if (k === 'audioOnly'){ updateTrackUI(); switchEngine(); } break; }
+      case 'toggle-set': { const k = a.dataset.k; S.settings[k] = !S.settings[k]; saveSettings(); a.setAttribute('aria-checked', String(S.settings[k])); if (k === 'audioOnly'){ updateTrackUI(); switchEngine(); } if (k === 'normalize') applyVolume(); if (k === 'autoMix'){ updateModes(); extendMix(); } break; }
       case 'theme': S.settings.theme = a.dataset.v; saveSettings(); applyTheme(); render(); break;
       case 'np-layout': setLayout(a.dataset.v); render(); break;
       case 'export': exportBackup(); break;
@@ -2519,6 +2697,7 @@ function bindUI(){
   view.addEventListener('change', e => {
     if (e.target.id === 'sort-sel'){ S.settings.sort = e.target.value; saveSettings(); render(); }
     if (e.target.id === 'set-speed') setSpeed(+e.target.value);
+    if (e.target.id === 'set-xfade'){ S.settings.xfade = +e.target.value; S.noXfade = false; saveSettings(); }
   });
   bindSortable(view); bindSortable($('#np-list'));
 
@@ -2537,6 +2716,8 @@ function bindUI(){
   $('#lp-rep').addEventListener('click', cycleRepeat);
   $('#lp-collapse').innerHTML = icon('down'); $('#lp-mini-up').innerHTML = icon('up'); $('#lp-mini-ic').innerHTML = icon('queue');
   $('#lp-collapse').addEventListener('click', () => setCollapsed(true));
+  $('#lp-mix').innerHTML = icon('mix');
+  $('#lp-mix').addEventListener('click', () => { S.settings.autoMix = !S.settings.autoMix; saveSettings(); updateModes(); buzz(8); toast(S.settings.autoMix ? 'Mezcla automática activada: al acabar la cola seguirá con canciones parecidas.' : 'Mezcla automática desactivada.'); if (S.settings.autoMix) extendMix(); });
   /* deslizar la cabecera hacia abajo recoge; deslizar la barrita hacia arriba (o tocarla) despliega */
   const swipe = (el, dir, fn) => {
     let y0 = null, id = null, moved = false;
@@ -2556,6 +2737,11 @@ function bindUI(){
   $('#ov-play').addEventListener('click', () => { buzz(10); togglePlay(); });
   $('#ov-full').addEventListener('click', toggleFull);
   $('#ov-theater').addEventListener('click', toggleTheater);
+  $('#ov-pip').innerHTML = icon('pip');
+  $('#ov-pip').addEventListener('click', togglePiP);
+  try { video.setAttribute('autopictureinpicture', ''); } catch {}
+  video.addEventListener('enterpictureinpicture', () => { $('#ov-pip').setAttribute('aria-pressed', 'true'); });
+  video.addEventListener('leavepictureinpicture', () => { $('#ov-pip').setAttribute('aria-pressed', 'false'); setTimeout(switchEngine, 50); });
   document.addEventListener('fullscreenchange', () => {
     const fs = !!document.fullscreenElement;
     $('#ov-full').innerHTML = icon(fs ? 'shrink' : 'expand');
@@ -2665,12 +2851,12 @@ function bindUI(){
   if ('ResizeObserver' in window) new ResizeObserver(() => { if (npOpen()) sizeCanvases(); }).observe($('#lcd'));
 
   /* motores de audio y vídeo */
-  for (const el of [audio, video]){
+  for (const el of [audio, audio2, video]){
     el.addEventListener('timeupdate', e => { if (e.target === engine) onTime(); });
     el.addEventListener('play', e => { if (e.target === engine){ S.wantPlay = true; updatePlayState(); } });
     el.addEventListener('pause', e => {
       if (e.target !== engine) return;
-      if (document.visibilityState === 'hidden' && engine === video && S.wantPlay){ switchEngine(); return; }
+      if (document.visibilityState === 'hidden' && engine === video && S.wantPlay && !inPiP()){ switchEngine(); return; }
       if (!engine.ended) S.wantPlay = false; updatePlayState();
     });
     el.addEventListener('ended', e => { if (e.target === engine) onEnded(); });
@@ -2688,7 +2874,7 @@ function bindUI(){
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden'){ saveStateNow(); if (engine === video && S.wantPlay) switchEngine(); }
+    if (document.visibilityState === 'hidden'){ saveStateNow(); if (engine === video && S.wantPlay) setTimeout(() => { if (document.visibilityState === 'hidden' && !inPiP()) switchEngine(); }, 350); }
     else { switchEngine(); if (S.sleepUntil) updateSleepUI(); }
   });
   window.addEventListener('pagehide', saveStateNow);
@@ -2702,6 +2888,7 @@ function bindUI(){
     else if (e.key === '/'){ e.preventDefault(); $('#btn-search').click(); }
     else if ((e.key === 't' || e.key === 'T') && npOpen() && listMode()) toggleTheater();
     else if ((e.key === 'f' || e.key === 'F') && npOpen() && listMode()) toggleFull();
+    else if ((e.key === 'p' || e.key === 'P') && cur()?.kind === 'video'){ togglePiP(); }
     else if (e.key === 'm' || e.key === 'M'){ toggleMute(); if (npOpen()) showOv(true); }
     else if (e.key === 'Escape' && npOpen() && !document.fullscreenElement && !e.target.closest('.sheet-wrap')) closeNP();
   });
