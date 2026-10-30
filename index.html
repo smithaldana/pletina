@@ -350,6 +350,7 @@ body.is-playing .now .eq i{animation-name:eq2}
 .lp-head .badge1{position:absolute;right:7px;bottom:7px;font:9px var(--f-panel);color:var(--rec)}
 .np-listpanel .rows{padding-top:2px}
 .ov .ov-theater{display:none}
+.ov-vol{display:none}
 @media (min-width:1000px){
   .np[data-layout="list"] .np-inner{max-width:1640px;container-type:inline-size;display:grid;grid-template-columns:minmax(0,1fr) 400px;grid-template-rows:auto auto auto auto minmax(0,1fr);column-gap:24px;row-gap:12px;align-content:start}
   .np[data-layout="list"] .np-head{grid-column:1/-1;grid-row:1}
@@ -365,6 +366,26 @@ body.is-playing .now .eq i{animation-name:eq2}
   .np.theater[data-layout="list"] .np-listpanel{grid-row:3/6;height:calc(100dvh - 140px);margin-bottom:0}
 }
 .np-listpanel .row{background:var(--panel)}
+/* ratón: controles abajo, estilo reproductor de escritorio */
+@media (hover:hover) and (pointer:fine){
+  .np[data-layout="list"] .ov{display:flex;align-items:flex-end;gap:2px;padding:0 10px 10px;background:linear-gradient(transparent 50%, rgba(0,0,0,.7))}
+  .np[data-layout="list"] .ov .ov-mid{position:static;display:contents}
+  .np[data-layout="list"] .ov button,.np[data-layout="list"] .ov #ov-play{width:42px;height:42px;background:none;border-radius:8px;position:static}
+  .np[data-layout="list"] .ov button:hover{background:rgba(255,255,255,.14)}
+  .np[data-layout="list"] .ov button .ic,.np[data-layout="list"] .ov #ov-play .ic{width:24px;height:24px}
+  .np[data-layout="list"] .ov-time{position:static;margin:0 10px 13px 6px;font-size:13.5px}
+  .np[data-layout="list"] .ov .ov-theater{position:static;margin-left:auto;width:42px;height:42px}
+  .np[data-layout="list"] .ov-vol{display:flex;align-items:center}
+  #ov-volr{width:0;opacity:0;margin:0;accent-color:#fff;transition:width .18s,opacity .18s,margin .18s;cursor:pointer}
+  .ov-vol:hover #ov-volr,#ov-volr:focus-visible,#ov-volr:active{width:84px;opacity:1;margin:0 8px 0 2px}
+  .np[data-layout="list"] .ov-bar{left:12px;right:12px;bottom:52px;transition:opacity .2s}
+  .np[data-layout="list"] .np-stage:not(.show-ov) .ov-bar{opacity:0}
+  .np[data-layout="list"] .np-stage.show-ov{cursor:default}
+  .np[data-layout="list"] .np-stage:not(.show-ov){cursor:none}
+}
+@media (hover:hover) and (pointer:fine) and (max-width:999px){
+  .np[data-layout="list"] .ov .ov-full{margin-left:auto}
+}
 
 @media (min-width:700px){
   .vh h1{font-size:36px}
@@ -428,6 +449,7 @@ body.is-playing .now .eq i{animation-name:eq2}
           <button id="ov-play" type="button" aria-label="Reproducir"></button>
           <button id="ov-next" type="button" aria-label="Siguiente"></button>
         </div>
+        <div class="ov-vol"><button id="ov-mute" type="button" aria-label="Silenciar (M)"></button><input type="range" id="ov-volr" min="0" max="1" step="0.02" value="1" aria-label="Volumen"></div>
         <span class="ov-time" id="ov-time">0:00 / 0:00</span>
         <button class="ov-theater" id="ov-theater" type="button" aria-label="Modo teatro (T)"></button>
         <button class="ov-full" id="ov-full" type="button" aria-label="Pantalla completa (F)"></button>
@@ -548,6 +570,9 @@ const ICONS = {
   drag:'<path d="M5 9.5h14M5 14.5h14"/>',
   expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   shrink:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
+  vol:'<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
+  volLow:'<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6"/>',
+  mute:'<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
   theater:'<rect x="2" y="6.5" width="20" height="11" rx="1.5"/>',
   theaterOff:'<rect x="5" y="8" width="14" height="8" rx="1.5"/>',
   vlist:'<rect x="3" y="4" width="8" height="6" rx="1.5"/><rect x="3" y="14" width="8" height="6" rx="1.5"/><path d="M14 6h7M14 9h4M14 16h7M14 19h4"/>',
@@ -1450,8 +1475,22 @@ let ovTimer = 0;
 function showOv(v = true){
   const st = $('#np-stage'); clearTimeout(ovTimer);
   st.classList.toggle('show-ov', v);
-  if (v && isPlaying()) ovTimer = setTimeout(() => st.classList.remove('show-ov'), 3200);
+  if (v && isPlaying()) ovTimer = setTimeout(hideOvIfIdle, 3000);
 }
+function hideOvIfIdle(){
+  const st = $('#np-stage');
+  if (!isPlaying()) return;
+  if (st.querySelector('.ov button:hover, .ov-vol:hover, #ov-bar:hover, #ov-volr:active') || scrub != null){ ovTimer = setTimeout(hideOvIfIdle, 1200); return; }
+  st.classList.remove('show-ov');
+}
+function applyVolume(){
+  const v = S.settings.volume ?? 1, m = !!S.settings.muted;
+  for (const el of [audio, video]){ el.volume = v; el.muted = m; }
+  const r = $('#ov-volr'); if (r) r.value = m ? 0 : v;
+  const b = $('#ov-mute'); if (b){ b.innerHTML = icon(m || v === 0 ? 'mute' : v < 0.5 ? 'volLow' : 'vol'); b.setAttribute('aria-label', m ? 'Activar sonido (M)' : 'Silenciar (M)'); }
+}
+function setVolume(v){ v = clamp(v, 0, 1); S.settings.volume = v; S.settings.muted = v === 0; applyVolume(); clearTimeout(setVolume.t); setVolume.t = setTimeout(saveSettings, 400); }
+function toggleMute(){ if (S.settings.muted && !(S.settings.volume > 0)) S.settings.volume = 0.6; S.settings.muted = !S.settings.muted; applyVolume(); saveSettings(); }
 function applyLayout(){
   const np = $('#np'); np.dataset.layout = listMode() ? 'list' : 'deck';
   applyTheater();
@@ -2476,9 +2515,20 @@ function bindUI(){
   else landscape.addEventListener('change', onRotate);
   /* toques sobre el vídeo: uno muestra controles, dos a un lado saltan 10 s */
   const stage = $('#np-stage'); let lastTap = 0, lastX = 0, tapT = 0;
+  stage.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' && listMode()) showOv(true); });
+  stage.addEventListener('pointerleave', e => { if (e.pointerType !== 'mouse' || !listMode() || !isPlaying()) return; clearTimeout(ovTimer); ovTimer = setTimeout(() => stage.classList.remove('show-ov'), 500); });
+  stage.addEventListener('wheel', e => { if (!listMode() || !S.currentId) return; e.preventDefault(); setVolume((S.settings.muted ? 0 : (S.settings.volume ?? 1)) + (e.deltaY < 0 ? 0.05 : -0.05)); showOv(true); }, { passive: false });
+  $('#ov-mute').addEventListener('click', () => { toggleMute(); showOv(true); });
+  $('#ov-volr').addEventListener('input', e => { setVolume(+e.target.value); showOv(true); });
   stage.addEventListener('click', e => {
     if (!listMode()){ if (e.target === video) togglePlay(); return; }
-    if (e.target.closest('button,.ov-bar')) return;
+    if (e.target.closest('button,.ov-bar,.ov-vol')) return;
+    if (e.pointerType === 'mouse'){
+      clearTimeout(tapT);
+      if (e.detail >= 2){ toggleFull(); return; }
+      tapT = setTimeout(() => { togglePlay(); showOv(true); }, 230);
+      return;
+    }
     if ($('#np').dataset.drag === '1'){ $('#np').dataset.drag = ''; return; }
     const r = stage.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, now = performance.now(), side = x < 0.38 ? 'l' : x > 0.62 ? 'r' : '';
     if (side && now - lastTap < 330 && Math.abs(x - lastX) < 0.3){ clearTimeout(tapT); seekBy(side === 'l' ? -10 : 10); flashSeek(side); lastTap = now; return; }
@@ -2591,6 +2641,7 @@ function bindUI(){
     else if (e.key === '/'){ e.preventDefault(); $('#btn-search').click(); }
     else if ((e.key === 't' || e.key === 'T') && npOpen() && listMode()) toggleTheater();
     else if ((e.key === 'f' || e.key === 'F') && npOpen() && listMode()) toggleFull();
+    else if (e.key === 'm' || e.key === 'M'){ toggleMute(); if (npOpen()) showOv(true); }
     else if (e.key === 'Escape' && npOpen() && !document.fullscreenElement && !e.target.closest('.sheet-wrap')) closeNP();
   });
 
@@ -2626,6 +2677,7 @@ async function boot(){
   for (const p of pls) S.playlists.set(p.id, p);
   if (settings) Object.assign(S.settings, settings);
   S.booted = true;
+  applyVolume();
   applyLayout();
   applyTheme(); restoreState(state); updateChips(); render();
   try { document.fonts && document.fonts.ready.then(() => { vuFace = null; markDirty(); setupMarquee(); }); } catch {}
