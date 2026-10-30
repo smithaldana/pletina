@@ -274,6 +274,7 @@ body.is-playing .eq i{animation:eq .8s ease-in-out infinite alternate}
 .toasts{position:fixed;left:0;right:0;bottom:calc(74px + env(safe-area-inset-bottom,0px));z-index:60;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 var(--gr) 0 var(--gl)}
 body.has-mini .toasts{bottom:calc(142px + env(safe-area-inset-bottom,0px))}
 body.np-open .toasts{bottom:auto;top:calc(60px + env(safe-area-inset-top,0px))}
+body.sheet-open .toasts{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))}
 .toast{pointer-events:auto;max-width:520px;width:100%;display:flex;align-items:center;gap:12px;background:var(--ink);color:var(--bg);padding:11px 14px;border-radius:10px;font-size:14px;box-shadow:0 10px 28px var(--shade);animation:tin .22s ease-out}
 .toast span{flex:1;min-width:0}
 .toast button{border:0;background:none;color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;padding:4px}
@@ -348,6 +349,13 @@ body.is-playing .now .eq i{animation-name:eq2}
 .lp-head .icon-btn{position:relative}
 .lp-head .badge1{position:absolute;right:7px;bottom:7px;font:9px var(--f-panel);color:var(--rec)}
 .np-listpanel .rows{padding-top:2px}
+@media (min-width:1000px){
+  .np[data-layout="list"] .np-inner{max-width:1320px;display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,400px);grid-template-rows:auto auto auto auto minmax(0,1fr);column-gap:24px;row-gap:12px;align-content:start}
+  .np[data-layout="list"] .np-head{grid-column:1/-1}
+  .np[data-layout="list"] .np-stage,.np[data-layout="list"] .np-titles,.np[data-layout="list"] .np-chips{grid-column:1;margin:0}
+  .np[data-layout="list"] .np-stage{border-radius:14px;max-height:calc(100vh - 230px)}
+  .np[data-layout="list"] .np-listpanel{grid-column:2;grid-row:2/6;margin:0 0 16px;border-radius:16px;padding:0 12px 12px;box-shadow:none;border:1px solid var(--line)}
+}
 .np-listpanel .row{background:var(--panel)}
 
 @media (min-width:700px){
@@ -456,7 +464,8 @@ body.is-playing .now .eq i{animation-name:eq2}
 </section>
 
 <audio id="engine-audio" preload="auto"></audio>
-<input type="file" id="file-in" multiple accept="audio/*,video/*,.mp3,.m4a,.mp4,.m4v,.webm,.ogg,.opus,.oga,.flac,.wav,.aac,.mov" hidden>
+<input type="file" id="file-in" multiple accept="audio/*,video/*,.mp3,.m4a,.mp4,.m4v,.webm,.ogg,.opus,.oga,.flac,.wav,.aac,.mov,.zip,application/zip" hidden>
+<input type="file" id="pack-in" accept=".zip,application/zip,application/x-zip-compressed" hidden>
 <input type="file" id="folder-in" webkitdirectory multiple hidden>
 <input type="file" id="cover-in" accept="image/*" hidden>
 <input type="file" id="backup-in" accept="application/json,.json" hidden>
@@ -516,6 +525,8 @@ const ICONS = {
   playnext:'<path d="M4 6h10M4 11h10M4 16h6"/><path d="M15 13.5v6l5-3z" fill="currentColor"/>',
   addq:'<path d="M4 6h16M4 11h16M4 16h8"/><path d="M15 17h6M18 14v6"/>',
   addlist:'<path d="M4 6h12M4 11h12M4 16h7"/><path d="M15 16h6M18 13v6"/>',
+  share:'<circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/>',
+  inbox:'<path d="M4 13l2.5-7.5h11L20 13v5.5A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="M4 13h4.5l1 2h5l1-2H20"/>',
   check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   download:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   upload:'<path d="M12 16V5M7 10l5-5 5 5M5 20h14"/>',
@@ -883,7 +894,10 @@ async function importOne(f){
   return t.id;
 }
 async function importFiles(files){
-  const list = [...files].filter(f => f && kindOf(f));
+  files = [...files];
+  const packs = files.filter(f => f && isPack(f));
+  if (packs.length){ files = files.filter(f => !packs.includes(f)); for (const p of packs) await importPack(p); if (!files.length) return; }
+  const list = files.filter(f => f && kindOf(f));
   const ignored = files.length - list.length;
   if (!list.length){ toast('Esos archivos no son de audio ni de vídeo.'); return; }
   if (S.importing){ toast('Ya estoy añadiendo archivos; espera un momento.'); return; }
@@ -1287,7 +1301,7 @@ function viewLists(){
   const pls = [...S.playlists.values()].sort((a, b) => b.updated - a.updated);
   const card = (k) => { const s = SMART[k], n = s.ids().length; return `<button class="smart-card" data-act="open-pl" data-pl="smart:${k}" type="button">${icon(s.ic)}<span><strong>${s.name}</strong><small>${plural(n, 'pista', 'pistas')}</small></span></button>`; };
   let h = `<div class="vh"><span class="eyebrow">${plural(pls.length, 'lista tuya', 'listas tuyas')}</span><h1>Listas</h1></div>
-  <div class="actions"><button class="btn btn-rec" data-act="new-pl" type="button">${icon('plus')}Nueva lista</button></div>
+  <div class="actions"><button class="btn btn-rec" data-act="new-pl" type="button">${icon('plus')}Nueva lista</button><button class="btn" data-act="import-pack" type="button">${icon('inbox')}Importar lista</button></div>
   <h2 class="sec" style="margin-top:6px">Automáticas</h2><div class="smart">${card('fav')}${card('top')}${card('recent')}</div>
   <h2 class="sec">Tus listas</h2>`;
   if (!pls.length) h += `<p class="hint">Aún no tienes listas. Crea una aquí o usa el menú ${icon('more')} de cualquier canción y elige «Añadir a una lista».</p>`;
@@ -1300,7 +1314,7 @@ function viewPlaylist(){
   S.ctx = { ids: items, source: { kind: 'playlist', id: p.id, label: p.name } };
   let h = `<button class="back" data-act="back-lists" type="button">${icon('back')}Listas</button>
   <div class="pl-head">${mosaic(items, 'big')}<div class="pl-info"><span class="eyebrow">${p.smart ? 'Lista automática' : 'Lista'}</span><h1>${esc(p.name)}</h1><span class="s">${plural(items.length, 'pista', 'pistas')} · ${fmtTotal(durOf(items))}</span></div></div>
-  <div class="actions">${items.length ? `<button class="btn btn-rec" data-act="play-ctx" type="button">${icon('play')}Reproducir</button><button class="btn" data-act="shuffle-ctx" type="button">${icon('shuffle')}Aleatorio</button>` : ''}${p.smart ? '' : `<button class="btn" data-act="pl-add" type="button">${icon('plus')}Añadir canciones</button><button class="icon-btn" data-act="pl-menu" data-pl="${p.id}" type="button" aria-label="Opciones de la lista">${icon('more')}</button>`}</div>`;
+  <div class="actions">${items.length ? `<button class="btn btn-rec" data-act="play-ctx" type="button">${icon('play')}Reproducir</button><button class="btn" data-act="shuffle-ctx" type="button">${icon('shuffle')}Aleatorio</button><button class="btn" data-act="share-pl" type="button">${icon('share')}Compartir</button>` : ''}${p.smart ? '' : `<button class="btn" data-act="pl-add" type="button">${icon('plus')}Añadir canciones</button><button class="icon-btn" data-act="pl-menu" data-pl="${p.id}" type="button" aria-label="Opciones de la lista">${icon('more')}</button>`}</div>`;
   if (!items.length) h += `<p class="hint">${p.smart ? p.empty : 'Esta lista está vacía. Pulsa «Añadir canciones» para llenarla.'}</p>`;
   else if (!p.smart && items.length > 1) h += `<p class="hint" style="margin:0 0 6px;font-size:13px">Arrastra ${icon('drag')} para cambiar el orden.</p>`;
   h += `<ul class="rows" data-list="ctx"${p.smart ? '' : ' data-sortable="pl"'}>${items.map((id, i) => rowHTML(S.tracks.get(id), { index: i, handle: !p.smart, wide: true })).join('')}</ul>`;
@@ -1665,9 +1679,9 @@ window.addEventListener('popstate', () => { if (skipPop > 0){ skipPop--; return;
 function openSheet({ title = '', head = '', body = '', onMount, onClose } = {}){
   const wrap = document.createElement('div'); wrap.className = 'sheet-wrap';
   wrap.innerHTML = `<div class="sheet-backdrop" data-close></div><div class="sheet" role="dialog" aria-modal="true"${title ? ` aria-label="${esc(title)}"` : ''}><div class="sheet-grab" aria-hidden="true"></div>${head}${title ? `<h3 class="sheet-title">${esc(title)}</h3>` : ''}<div class="sheet-body">${body}</div></div>`;
-  document.body.appendChild(wrap);
+  document.body.appendChild(wrap); document.body.classList.add('sheet-open');
   const sheet = wrap.querySelector('.sheet'), lastFocus = document.activeElement; let closed = false;
-  const close = fromPop => { if (closed) return; closed = true; wrap.classList.remove('open'); setTimeout(() => wrap.remove(), 260); if (fromPop !== true) popLayer(close); onClose && onClose(); try { lastFocus && lastFocus.focus({ preventScroll: true }); } catch {} };
+  const close = fromPop => { if (closed) return; closed = true; wrap.classList.remove('open'); setTimeout(() => { wrap.remove(); if (!document.querySelector('.sheet-wrap')) document.body.classList.remove('sheet-open'); }, 260); if (fromPop !== true) popLayer(close); onClose && onClose(); try { lastFocus && lastFocus.focus({ preventScroll: true }); } catch {} };
   wrap.addEventListener('click', e => { if (e.target.closest('[data-close]')) close(); });
   wrap.addEventListener('keydown', e => { if (e.key === 'Escape'){ e.stopPropagation(); close(); } });
   pushLayer(close);
@@ -1758,10 +1772,11 @@ function plMenu(id){
   const p = S.playlists.get(id); if (!p) return;
   const items = p.items.filter(x => S.tracks.has(x));
   openSheet({ head: `<div class="sheet-head">${mosaic(items, 'sm')}<span class="meta"><span class="t">${esc(p.name)}</span><span class="s">${plural(items.length, 'pista', 'pistas')}</span></span></div>`,
-    body: `<ul class="menu"><li><button data-m="queue" type="button">${icon('addq')}Añadir todo a la cola</button></li><li><button data-m="rename" type="button">${icon('edit')}Cambiar nombre</button></li><li><button data-m="delete" class="danger" type="button">${icon('trash')}Eliminar lista</button></li></ul>`,
+    body: `<ul class="menu"><li><button data-m="share" type="button">${icon('share')}Compartir lista</button></li><li><button data-m="queue" type="button">${icon('addq')}Añadir todo a la cola</button></li><li><button data-m="rename" type="button">${icon('edit')}Cambiar nombre</button></li><li><button data-m="delete" class="danger" type="button">${icon('trash')}Eliminar lista</button></li></ul>`,
     onMount: (el, close) => el.addEventListener('click', e => {
       const b = e.target.closest('[data-m]'); if (!b) return; const m = b.dataset.m; close();
-      if (m === 'queue'){ if (!items.length) return; if (!S.currentId && !S.queue.length) startList(items, 0, { kind: 'playlist', id: p.id, label: p.name }); else { S.queue.push(...items); if (S.orig) S.orig.push(...items); saveStateSoon(); toast(`${plural(items.length, 'pista añadida', 'pistas añadidas')} a la cola.`); } }
+      if (m === 'share') later(() => shareSheet(p.id));
+      else if (m === 'queue'){ if (!items.length) return; if (!S.currentId && !S.queue.length) startList(items, 0, { kind: 'playlist', id: p.id, label: p.name }); else { S.queue.push(...items); if (S.orig) S.orig.push(...items); saveStateSoon(); toast(`${plural(items.length, 'pista añadida', 'pistas añadidas')} a la cola.`); } }
       else if (m === 'rename') later(() => nameSheet({ title: 'Cambiar nombre', value: p.name, ok: 'Guardar', onSave: async v => { p.name = v.slice(0, 80); p.updated = Date.now(); await DB.put('playlists', p); render(); if (S.source?.id === p.id){ S.source.label = p.name; $('#np-src').textContent = p.name; } } }));
       else if (m === 'delete') later(async () => { if (await confirmSheet({ title: '¿Eliminar la lista?', text: `Se borra «${esc(p.name)}». Las canciones siguen en tu biblioteca.`, ok: 'Eliminar', danger: true })){ S.playlists.delete(p.id); await DB.del('playlists', p.id); if (S.view === 'playlist' && S.plId === p.id){ if (S.plLayer){ const f = S.plLayer; S.plLayer = null; popLayer(f); } S.view = 'lists'; } render(); toast('Lista eliminada.'); } });
     }) });
@@ -1856,6 +1871,149 @@ async function importBackup(file){
     lists++;
   }
   render(); toast(`Copia restaurada: ${plural(lists, 'lista', 'listas')} y ${plural(matched, 'canción reconocida', 'canciones reconocidas')}.`);
+}
+
+/* ───────── compartir listas: un .zip con la lista y sus archivos ───────── */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+async function crc32Blob(blob, onBytes){
+  let c = 0xFFFFFFFF; const rd = blob.stream().getReader();
+  for (;;){
+    const { done, value } = await rd.read(); if (done) break;
+    for (let i = 0; i < value.length; i++) c = CRC_T[(c ^ value[i]) & 255] ^ (c >>> 8);
+    onBytes && onBytes(value.length);
+  }
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+const ZIP_MAX = 3.9e9;
+const enc8 = s => new TextEncoder().encode(s);
+async function buildZip(entries, onProgress){
+  const total = entries.reduce((a, e) => a + e.blob.size, 0); let done = 0;
+  const parts = [], central = []; let offset = 0;
+  const d = new Date(), dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for (const e of entries){
+    const name = enc8(e.name), size = e.blob.size;
+    const crc = await crc32Blob(e.blob, n => { done += n; onProgress && onProgress(done / (total || 1)); });
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, dosT, true); lh.setUint16(12, dosD, true); lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true);
+    lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(lh.buffer, name, e.blob);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, dosT, true); ch.setUint16(14, dosD, true); ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(ch.buffer, name);
+    offset += 30 + name.length + size;
+  }
+  const cdSize = central.reduce((a, b) => a + b.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
+}
+async function readZip(file){
+  const tailLen = Math.min(file.size, 65557), tail = new DataView(await file.slice(file.size - tailLen).arrayBuffer());
+  let eo = -1; for (let i = tailLen - 22; i >= 0; i--) if (tail.getUint32(i, true) === 0x06054b50){ eo = i; break; }
+  if (eo < 0) throw new Error('no es un archivo .zip válido');
+  const count = tail.getUint16(eo + 10, true), cdSize = tail.getUint32(eo + 12, true), cdOff = tail.getUint32(eo + 16, true);
+  const cd = new DataView(await file.slice(cdOff, cdOff + cdSize).arrayBuffer()), out = new Map(); let p = 0;
+  for (let i = 0; i < count && p + 46 <= cd.byteLength; i++){
+    if (cd.getUint32(p, true) !== 0x02014b50) break;
+    const method = cd.getUint16(p + 10, true), size = cd.getUint32(p + 20, true), nl = cd.getUint16(p + 28, true), xl = cd.getUint16(p + 30, true), cl = cd.getUint16(p + 32, true), lo = cd.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(new Uint8Array(cd.buffer, cd.byteOffset + p + 46, nl));
+    out.set(name, { method, size, lo }); p += 46 + nl + xl + cl;
+  }
+  return {
+    has: n => out.has(n),
+    async blob(n, type = ''){
+      const e = out.get(n); if (!e) return null;
+      if (e.method !== 0) throw new Error('el .zip está comprimido; usa el archivo tal cual lo creó Pletina');
+      const lh = new DataView(await file.slice(e.lo, e.lo + 30).arrayBuffer());
+      const start = e.lo + 30 + lh.getUint16(26, true) + lh.getUint16(28, true);
+      return file.slice(start, start + e.size, type);
+    },
+  };
+}
+const safeName = s => String(s || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'pista';
+const isPack = f => /\.zip$/i.test(f.name || '') || /zip/.test(f.type || '');
+let packFile = null;
+function shareSheet(plId){
+  const p = getPl(plId); if (!p) return;
+  const items = p.items.filter(id => S.tracks.has(id)).map(id => S.tracks.get(id));
+  if (!items.length){ toast('La lista está vacía.'); return; }
+  const bytes = items.reduce((a, t) => a + (t.size || 0), 0), vids = items.filter(t => t.kind === 'video').length;
+  const tooBig = bytes > ZIP_MAX;
+  const what = [vids ? plural(vids, 'vídeo', 'vídeos') : '', items.length - vids ? plural(items.length - vids, 'canción', 'canciones') : ''].filter(Boolean).join(' y ');
+  packFile = null;
+  openSheet({ title: `Compartir «${p.name}»`, body: `<div class="form">
+    <p class="confirm-text">Se crea un solo archivo con la lista, sus ${what}, portadas y orden: <strong>${fmtBytes(bytes)}</strong>. Quien lo reciba lo abre en Pletina → Listas → <strong>Importar lista</strong> y no tiene que descargar nada más.</p>
+    ${tooBig ? `<p class="confirm-text" style="color:var(--rec)">Pasa de 3,9 GB, el máximo para un solo archivo. Divide la lista en dos y compártelas por separado.</p>` : bytes > 1.9e9 ? `<p class="hint" style="margin:0">WhatsApp no admite más de 2 GB. Envíala con <strong>Quick Share</strong> (rápido, sin internet, si estáis cerca) o súbela a Drive.</p>` : `<p class="hint" style="margin:0">Si estáis cerca, <strong>Quick Share</strong> es lo más rápido. También vale WhatsApp, Telegram o Drive.</p>`}
+    <div id="sh-prog" hidden><div class="meter"><i id="sh-bar" style="width:0%"></i></div><p class="hint" id="sh-txt" style="margin:6px 0 0">Preparando…</p></div>
+    <div class="sheet-actions" id="sh-actions"><button type="button" class="btn" data-close>Cancelar</button><button type="button" class="btn btn-rec" id="sh-go"${tooBig ? ' disabled' : ''}>${icon('share')}Crear archivo</button></div>
+  </div>`, onMount: (el, close) => {
+    el.querySelector('#sh-go').addEventListener('click', async () => {
+      const acts = el.querySelector('#sh-actions'), prog = el.querySelector('#sh-prog'), bar = el.querySelector('#sh-bar'), txt = el.querySelector('#sh-txt');
+      acts.hidden = true; prog.hidden = false;
+      try {
+        const entries = [], meta = { app: 'pletina', kind: 'playlist', version: 1, name: p.name, created: new Date().toISOString(), tracks: [] };
+        for (let i = 0; i < items.length; i++){
+          const t = items[i], blob = await DB.get('blobs', t.id); if (!blob) continue;
+          const ext = (t.fileName.match(/\.[a-z0-9]{2,5}$/i) || [t.kind === 'video' ? '.mp4' : '.mp3'])[0];
+          const file = `media/${String(i + 1).padStart(3, '0')} - ${safeName(t.artist ? t.artist + ' - ' + t.title : t.title)}${ext}`;
+          entries.push({ name: file, blob });
+          const cover = await DB.get('covers', t.id); let coverName = '';
+          if (cover){ coverName = `covers/${String(i + 1).padStart(3, '0')}.jpg`; entries.push({ name: coverName, blob: cover }); }
+          meta.tracks.push({ file, cover: coverName, title: t.title, artist: t.artist, album: t.album, kind: t.kind, mime: t.mime, duration: t.duration, fileName: t.fileName, size: t.size, w: t.w || 0, h: t.h || 0, tint: t.tint || null });
+        }
+        entries.unshift({ name: 'pletina.json', blob: new Blob([JSON.stringify(meta, null, 1)], { type: 'application/json' }) });
+        const zip = await buildZip(entries, r => { bar.style.width = (r * 100).toFixed(1) + '%'; txt.textContent = `Preparando… ${Math.round(r * 100)} %`; });
+        packFile = new File([zip], `Pletina - ${safeName(p.name)}.zip`, { type: 'application/zip' });
+        bar.style.width = '100%'; txt.textContent = `Listo: ${packFile.name} · ${fmtBytes(packFile.size)}`;
+        const canShare = !!(navigator.canShare && navigator.canShare({ files: [packFile] }));
+        acts.innerHTML = `${canShare ? `<button type="button" class="btn" id="sh-save">${icon('download')}Guardar</button><button type="button" class="btn btn-rec" id="sh-send">${icon('share')}Enviar</button>` : `<button type="button" class="btn" data-close>Cerrar</button><button type="button" class="btn btn-rec" id="sh-save">${icon('download')}Guardar archivo</button>`}`;
+        acts.hidden = false;
+        el.querySelector('#sh-save').addEventListener('click', () => { downloadFile(packFile); toast('Archivo guardado en Descargas.'); });
+        el.querySelector('#sh-send')?.addEventListener('click', async () => {
+          try { await navigator.share({ files: [packFile], title: `Lista «${p.name}»`, text: `Te comparto mi lista «${p.name}» para Pletina. Ábrela en Pletina → Listas → Importar lista.` }); close(); }
+          catch (e) { if (e?.name !== 'AbortError') toast('No se pudo enviar desde aquí. Usa «Guardar» y envíalo desde Descargas.'); }
+        });
+      } catch (e) { txt.textContent = 'No se pudo crear el archivo: ' + (e?.message || e); acts.hidden = false; }
+    });
+  }, onClose: () => { packFile = null; } });
+}
+function downloadFile(file){
+  try { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 60000); } catch {}
+}
+async function importPack(file){
+  let zip, meta;
+  try { zip = await readZip(file); const j = await zip.blob('pletina.json'); if (!j) throw new Error('falta pletina.json'); meta = JSON.parse(await j.text()); }
+  catch (e) { toast('Ese .zip no es una lista de Pletina' + (e?.message ? ': ' + e.message : '.')); return; }
+  if (meta?.app !== 'pletina'){ toast('Ese .zip no es una lista de Pletina.'); return; }
+  S.importing = true; document.body.classList.add('recording'); requestPersist();
+  const tt = toast('', { ms: 1e9 }), ids = []; let added = 0, reused = 0;
+  try {
+    const list = meta.tracks || [];
+    for (let i = 0; i < list.length; i++){
+      const m = list[i]; tt.set(`Importando «${meta.name}» · ${i + 1} de ${list.length}`); updateCounter(`REC ${i + 1}/${list.length}`);
+      const ex = [...S.tracks.values()].find(t => t.fileName === m.fileName && t.size === m.size);
+      if (ex){ ids.push(ex.id); reused++; continue; }
+      const blob = await zip.blob(m.file, m.mime || ''); if (!blob) continue;
+      const t = { id: uid(), title: m.title || m.fileName, artist: m.artist || '', album: m.album || '', kind: m.kind === 'video' ? 'video' : 'audio', mime: m.mime || '', size: blob.size, duration: m.duration || 0, fileName: m.fileName || m.file.split('/').pop(), added: Date.now() + i, plays: 0, lastPlayed: 0, fav: false, w: m.w || 0, h: m.h || 0, wide: true, tint: m.tint || null };
+      let cover = m.cover ? await zip.blob(m.cover, 'image/jpeg') : null;
+      if (!cover) cover = await genCover(t.title + '·' + t.artist);
+      await DB.put('blobs', blob, t.id); await DB.put('covers', cover, t.id); await DB.put('tracks', t);
+      S.tracks.set(t.id, t); ids.push(t.id); added++;
+    }
+    let name = meta.name || 'Lista compartida';
+    if ([...S.playlists.values()].some(q => q.name === name)) name += ' (compartida)';
+    const p = await createPlaylist(name, ids);
+    tt.kill(); S.importing = false; document.body.classList.remove('recording'); updateCounter();
+    toast(`Lista «${p.name}» importada: ${plural(added, 'pista nueva', 'pistas nuevas')}${reused ? `, ${reused} ya las tenías` : ''}.`, { ms: 5000 });
+    queueAnalysis(ids); openPlaylist(p.id);
+  } catch (e) {
+    tt.kill(); S.importing = false; document.body.classList.remove('recording'); updateCounter(); render();
+    toast(e?.name === 'QuotaExceededError' ? 'No queda espacio en el móvil para esta lista.' : 'No se pudo importar la lista: ' + (e?.message || e), { ms: 6000 });
+  }
 }
 
 /* ───────── reordenar arrastrando ───────── */
@@ -1987,6 +2145,8 @@ function bindUI(){
       case 'shuffle-ctx': startList(S.ctx.ids, 0, S.ctx.source, true); break;
       case 'filter': S.settings.filter = a.dataset.v; saveSettings(); render(); break;
       case 'remove-demos': removeDemos(); break;
+      case 'import-pack': $('#pack-in').click(); break;
+      case 'share-pl': shareSheet(S.plId); break;
       case 'new-pl': nameSheet({ title: 'Nueva lista', ok: 'Crear lista', onSave: async v => { const p = await createPlaylist(v); openPlaylist(p.id); } }); break;
       case 'open-pl': openPlaylist(a.dataset.pl); break;
       case 'pl-menu': plMenu(a.dataset.pl); break;
@@ -2069,6 +2229,7 @@ function bindUI(){
 
   $('#file-in').addEventListener('change', e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) importFiles(f); });
   $('#folder-in').addEventListener('change', e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) importFiles(f); });
+  $('#pack-in').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importPack(f); });
   $('#backup-in').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importBackup(f); });
   $('#cover-in').addEventListener('change', async e => { const f = e.target.files[0]; e.target.value = ''; if (!f || !coverCb) return; try { coverCb(await shrinkImage(f)); } catch { toast('No pude leer esa imagen.'); } });
 
