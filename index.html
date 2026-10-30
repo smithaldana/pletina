@@ -525,6 +525,7 @@ const ICONS = {
   playnext:'<path d="M4 6h10M4 11h10M4 16h6"/><path d="M15 13.5v6l5-3z" fill="currentColor"/>',
   addq:'<path d="M4 6h16M4 11h16M4 16h8"/><path d="M15 17h6M18 14v6"/>',
   addlist:'<path d="M4 6h12M4 11h12M4 16h7"/><path d="M15 16h6M18 13v6"/>',
+  cloud:'<path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.6 4.5 4.5 0 0 0 7 18.5z"/><path d="M12 15.5v-5M9.8 12.7l2.2-2.2 2.2 2.2"/>',
   share:'<circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/>',
   inbox:'<path d="M4 13l2.5-7.5h11L20 13v5.5A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="M4 13h4.5l1 2h5l1-2H20"/>',
   check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
@@ -872,7 +873,7 @@ async function runAnalysis(){
 
 /* ───────── importación ───────── */
 async function requestPersist(){ try { if (navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); } catch {} }
-async function importOne(f){
+async function importOne(f, extra = null, albumHint = ''){
   for (const t of S.tracks.values()) if (t.fileName === f.name && t.size === f.size) return 'dup';
   const [tags, pr] = await Promise.all([readTags(f), probe(f)]);
   if (pr.error) throw new Error('este navegador no puede reproducir ese formato');
@@ -887,6 +888,8 @@ async function importOne(f){
   if (!cover && pr.frame){ try { stats = await imageStats(pr.frame); if (stats.lum > 12) cover = pr.frame; } catch {} }
   if (!cover){ cover = await genCover(t.title + '·' + t.artist); stats = await imageStats(cover).catch(() => null); }
   t.tint = stats?.tint || null;
+  if (extra) Object.assign(t, extra);
+  if (!t.album && albumHint) t.album = albumHint;
   await DB.put('blobs', f, t.id);
   await DB.put('covers', cover, t.id);
   await DB.put('tracks', t);
@@ -1288,7 +1291,7 @@ function viewLibrary(){
   if (!S.booted) return h;
   if (!all.length && !S.seeding) return h + `<div class="empty">${cassette()}<h2>La pletina está vacía</h2><p>Añade MP3, M4A o MP4 desde tu móvil o desde Google Drive. Se guardan aquí y suenan sin conexión.</p><button class="btn btn-rec" data-act="import" type="button">${icon('plus')}Añadir archivos</button></div>`;
   const desktop = !/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-  h += `<div class="actions"><button class="btn btn-rec" data-act="import" type="button">${icon('plus')}Añadir</button>${desktop ? `<button class="btn" data-act="import-folder" type="button">${icon('folder')}Carpeta</button>` : ''}${ids.length ? `<button class="btn" data-act="play-ctx" type="button">${icon('play')}Reproducir</button><button class="btn" data-act="shuffle-ctx" type="button">${icon('shuffle')}Aleatorio</button>` : ''}</div>`;
+  h += `<div class="actions"><button class="btn btn-rec" data-act="import" type="button">${icon('plus')}Añadir</button>${desktop ? `<button class="btn" data-act="import-folder" type="button">${icon('folder')}Carpeta</button>` : ''}${S.settings.driveOn ? `<button class="btn" data-act="gd-sync" type="button">${icon('cloud')}${GD.busy ? 'Sincronizando…' : 'Sincronizar'}</button>` : ''}${ids.length ? `<button class="btn" data-act="play-ctx" type="button">${icon('play')}Reproducir</button><button class="btn" data-act="shuffle-ctx" type="button">${icon('shuffle')}Aleatorio</button>` : ''}</div>`;
   if (S.seeding) h += `<div class="note"><span class="spin"></span><div><strong>Grabando tres cintas de ejemplo…</strong><p>Se componen aquí mismo, en tu dispositivo, para que pruebes la app al momento.</p></div></div>`;
   else if (demos && demos === all.length) h += `<div class="note"><div><strong>Tres cintas de ejemplo</strong><p>Las compuso la app en tu dispositivo para que pruebes las agujas, la forma de onda y las listas. Quítalas cuando añadas tu música.</p></div><button class="btn btn-ghost" data-act="remove-demos" type="button">Quitar ejemplos</button></div>`;
   if (all.length) h += `<div class="toolbar"><div class="seg" role="group" aria-label="Filtrar">${[['all', 'Todo'], ['audio', 'Música'], ['video', 'Vídeos'], ['fav', 'Favoritas']].map(([k, l]) => `<button data-act="filter" data-v="${k}" type="button" aria-pressed="${S.settings.filter === k}">${l}</button>`).join('')}</div></div>`;
@@ -1336,6 +1339,7 @@ function viewSettings(){
   const sw = (k, l, sub) => `<div class="set-row"><div class="lbl">${l}<small>${sub}</small></div><button class="switch" role="switch" type="button" aria-checked="${!!S.settings[k]}" data-act="toggle-set" data-k="${k}" aria-label="${l}"><i></i></button></div>`;
   const installText = standalone ? 'Ábrela desde tu pantalla de inicio. Funciona sin conexión y aparece al compartir archivos.' : inFrame ? 'Para instalarla, abre Pletina desde su propia dirección web y elige «Instalar». Así sigue sonando con la pantalla bloqueada y aparece al compartir un MP3 desde otra app.' : 'En Chrome: menú ⋮ → «Instalar aplicación». Así sigue sonando con la pantalla bloqueada y aparece al compartir un MP3 desde otra app.';
   return `<div class="vh"><span class="eyebrow">Pletina</span><h1>Ajustes</h1></div>
+  ${driveSettingsHTML()}
   <section class="set-group"><h2>Almacenamiento</h2><div class="set-card">
     <div class="set-row col"><div class="lbl">En este dispositivo<small id="st-text">Calculando…</small></div><div class="meter"><i id="st-bar" style="width:0%"></i></div></div>
     <div class="set-row"><div class="lbl">Protección contra borrado<small id="st-persist">Comprobando…</small></div><button class="btn" id="st-protect" data-act="persist" type="button" hidden>Proteger</button></div>
@@ -1736,7 +1740,7 @@ function trackMenu(id, { plId, qi } = {}){
 }
 function toggleFav(id){
   const t = S.tracks.get(id); if (!t) return;
-  t.fav = !t.fav; saveTrack(t); buzz(10);
+  t.fav = !t.fav; t.metaT = Date.now(); saveTrack(t); buzz(10); listsChanged();
   if (id === S.currentId){ $('#np-fav').setAttribute('aria-pressed', String(t.fav)); $('#np-fav').innerHTML = icon(t.fav ? 'heartFill' : 'heart'); $('#np-fav').setAttribute('aria-label', t.fav ? 'Quitar de favoritas' : 'Añadir a favoritas'); }
   if (S.view !== 'settings') render();
   toast(t.fav ? 'Añadida a favoritas.' : 'Quitada de favoritas.');
@@ -1811,6 +1815,7 @@ function editSheet(id){
       el.querySelector('#ed-cover-btn').addEventListener('click', () => { coverCb = b => { newCover = b; el.querySelector('#ed-img').src = URL.createObjectURL(b); }; $('#cover-in').click(); });
       el.querySelector('#ed-form').addEventListener('submit', async e => {
         e.preventDefault();
+        t.metaT = Date.now(); setTimeout(listsChanged, 0);
         t.title = el.querySelector('#ed-title').value.trim() || t.title; t.artist = el.querySelector('#ed-artist').value.trim(); t.album = el.querySelector('#ed-album').value.trim();
         if (newCover){ await DB.put('covers', newCover, id); invalidateCover(id); const st = await imageStats(newCover).catch(() => null); if (st) t.tint = st.tint; }
         await saveTrack(t); close(); render(); if (id === S.currentId){ updateTrackUI(); updateMS(t); } toast('Información guardada.');
@@ -1871,6 +1876,245 @@ async function importBackup(file){
     lists++;
   }
   render(); toast(`Copia restaurada: ${plural(lists, 'lista', 'listas')} y ${plural(matched, 'canción reconocida', 'canciones reconocidas')}.`);
+}
+
+/* ───────── Google Drive: misma música y listas en todos tus dispositivos ───────── */
+const GOOGLE_CLIENT_ID = '';
+const G_SCOPE = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
+const LISTS_FILE = 'pletina-listas.json';
+const MEDIA_RE = /\.(mp3|m4a|aac|ogg|oga|opus|flac|wav|weba|mp4|m4v|webm|mov)$/i;
+const GD = { token: null, exp: 0, folderId: null, folderName: '', listsId: null, listsRO: false, busy: false, pushT: 0, merging: false, created: false };
+const clientId = () => GOOGLE_CLIENT_ID || S.settings.driveClientId || '';
+const tokValid = () => !!GD.token && GD.exp > Date.now() + 60000;
+function loadTok(){ try { const j = JSON.parse(localStorage.getItem('pletina-gtok') || 'null'); if (j && j.exp > Date.now() + 60000){ GD.token = j.token; GD.exp = j.exp; } } catch {} }
+function saveTok(){ try { GD.token ? localStorage.setItem('pletina-gtok', JSON.stringify({ token: GD.token, exp: GD.exp })) : localStorage.removeItem('pletina-gtok'); } catch {} }
+let gisP = null;
+function loadGIS(){
+  if (window.google?.accounts?.oauth2) return Promise.resolve();
+  return gisP || (gisP = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.onload = () => res(); s.onerror = () => { gisP = null; rej(new Error('no se pudo cargar el inicio de sesión de Google. ¿Hay conexión?')); }; document.head.appendChild(s); }));
+}
+function getToken(interactive){
+  if (tokValid()) return Promise.resolve(GD.token);
+  if (!interactive) return Promise.reject(Object.assign(new Error('Toca «Sincronizar» para volver a conectar con Google.'), { reauth: true }));
+  if (!clientId()) return Promise.reject(new Error('falta el ID de cliente de Google.'));
+  return loadGIS().then(() => new Promise((res, rej) => {
+    const tc = google.accounts.oauth2.initTokenClient({ client_id: clientId(), scope: G_SCOPE,
+      callback: r => { if (r.error){ rej(new Error(r.error_description || r.error)); return; } GD.token = r.access_token; GD.exp = Date.now() + (+r.expires_in || 3600) * 1000; saveTok(); res(GD.token); },
+      error_callback: e => rej(new Error(e?.type === 'popup_closed' ? 'cerraste la ventana de Google antes de terminar.' : e?.type === 'popup_failed_to_open' ? 'el navegador bloqueó la ventana de Google.' : (e?.message || 'no se pudo conectar con Google.'))) });
+    tc.requestAccessToken({ prompt: S.settings.driveEmail ? '' : 'consent', login_hint: S.settings.driveEmail || undefined });
+  }));
+}
+async function gapi(path, opts = {}){
+  const url = /^https:/.test(path) ? path : 'https://www.googleapis.com/drive/v3/' + path;
+  const r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + GD.token } });
+  if (r.status === 401){ GD.token = null; GD.exp = 0; saveTok(); throw Object.assign(new Error('La sesión de Google caducó. Toca «Sincronizar» para volver a conectar.'), { reauth: true }); }
+  if (!r.ok){ let msg = 'error ' + r.status; try { const j = await r.json(); msg = j.error?.message || msg; } catch {} throw Object.assign(new Error(msg), { status: r.status }); }
+  return r;
+}
+const gq = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+async function gList(q, fields){
+  let out = [], page = '';
+  do {
+    const r = await gapi(`files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent('nextPageToken,files(' + fields + ')')}&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true${page ? '&pageToken=' + encodeURIComponent(page) : ''}`);
+    const j = await r.json(); out = out.concat(j.files || []); page = j.nextPageToken || '';
+  } while (page);
+  return out;
+}
+async function findFolder(){
+  const name = S.settings.driveFolder || 'Pletina';
+  const fs = await gList(`name='${gq(name)}' and mimeType='application/vnd.google-apps.folder' and trashed=false`, 'id,name,ownedByMe,modifiedTime');
+  if (fs.length){
+    fs.sort((a, b) => (+!!b.ownedByMe - +!!a.ownedByMe) || (Date.parse(b.modifiedTime) - Date.parse(a.modifiedTime)));
+    GD.folderId = fs[0].id; GD.folderName = fs[0].name; GD.created = false; return;
+  }
+  const r = await gapi('files?fields=id,name&supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder' }) });
+  const f = await r.json(); GD.folderId = f.id; GD.folderName = f.name; GD.created = true;
+}
+async function listMedia(){
+  const out = [], queue = [{ id: GD.folderId, path: [] }], seen = new Set();
+  GD.listsId = null;
+  while (queue.length && seen.size < 300){
+    const f = queue.shift(); if (seen.has(f.id)) continue; seen.add(f.id);
+    const items = await gList(`'${f.id}' in parents and trashed=false`, 'id,name,mimeType,size,md5Checksum,modifiedTime');
+    for (const it of items){
+      if (it.mimeType === 'application/vnd.google-apps.folder') queue.push({ id: it.id, path: [...f.path, it.name] });
+      else if (it.name === LISTS_FILE){ if (f.id === GD.folderId) GD.listsId = it.id; }
+      else if (MEDIA_RE.test(it.name) || /^(audio|video)\//.test(it.mimeType || '')) out.push({ ...it, size: +it.size || 0, album: f.path[f.path.length - 1] || '' });
+    }
+  }
+  return out;
+}
+async function driveDownload(f){
+  const r = await gapi(`files/${f.id}?alt=media&supportsAllDrives=true`);
+  const b = await r.blob();
+  return new File([b], f.name, { type: f.mimeType && !/octet/.test(f.mimeType) ? f.mimeType : (b.type || ''), lastModified: Date.parse(f.modifiedTime) || Date.now() });
+}
+function localDoc(){
+  return {
+    app: 'pletina', kind: 'sync', version: 1, updated: Date.now(),
+    playlists: [...S.playlists.values()].map(p => ({ id: p.id, name: p.name, created: p.created || 0, updated: p.updated || 0, items: p.items.map(id => S.tracks.get(id)?.driveId).filter(Boolean) })),
+    tombs: S.tombs || [],
+    tracks: Object.fromEntries([...S.tracks.values()].filter(t => t.driveId && t.metaT).map(t => [t.driveId, { title: t.title, artist: t.artist, album: t.album, fav: !!t.fav, t: t.metaT }])),
+  };
+}
+async function mergeDoc(doc){
+  GD.merging = true;
+  try {
+    const byDrive = new Map([...S.tracks.values()].filter(t => t.driveId).map(t => [t.driveId, t]));
+    for (const [did, m] of Object.entries(doc.tracks || {})){
+      const t = byDrive.get(did);
+      if (t && (m.t || 0) > (t.metaT || 0)){ Object.assign(t, { title: m.title || t.title, artist: m.artist ?? t.artist, album: m.album ?? t.album, fav: !!m.fav, metaT: m.t }); await saveTrack(t); }
+    }
+    const tombs = new Map((S.tombs || []).map(x => [x.id, x.t]));
+    for (const x of doc.tombs || []) if (!tombs.has(x.id) || tombs.get(x.id) < x.t) tombs.set(x.id, x.t);
+    for (const [id, tt] of tombs){ const p = S.playlists.get(id); if (p && (p.updated || 0) <= tt){ S.playlists.delete(id); await DB.del('playlists', id); } }
+    for (const rp of doc.playlists || []){
+      if (tombs.has(rp.id) && tombs.get(rp.id) >= (rp.updated || 0)) continue;
+      const lp = S.playlists.get(rp.id);
+      if (lp && (lp.updated || 0) >= (rp.updated || 0)) continue;
+      const localOnly = lp ? lp.items.filter(id => S.tracks.has(id) && !S.tracks.get(id).driveId) : [];
+      const p = { id: rp.id, name: rp.name || 'Lista', created: rp.created || Date.now(), updated: rp.updated || Date.now(), items: [...(rp.items || []).map(d => byDrive.get(d)?.id).filter(Boolean), ...localOnly] };
+      S.playlists.set(p.id, p); await DB.put('playlists', p);
+    }
+    S.tombs = [...tombs].map(([id, t]) => ({ id, t })).filter(x => Date.now() - x.t < 120 * 864e5);
+    await DB.put('meta', S.tombs, 'tombs');
+  } finally { GD.merging = false; }
+}
+async function pushDoc(){
+  const json = JSON.stringify(localDoc());
+  try {
+    if (GD.listsId) await gapi(`https://www.googleapis.com/upload/drive/v3/files/${GD.listsId}?uploadType=media&supportsAllDrives=true`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: json });
+    else {
+      const b = 'pletina' + Date.now();
+      const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: LISTS_FILE, parents: [GD.folderId], mimeType: 'application/json' })}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${json}\r\n--${b}--`;
+      const r = await gapi('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id&supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body });
+      GD.listsId = (await r.json()).id;
+    }
+    GD.listsRO = false;
+  } catch (e) { if (e.status === 403 || e.status === 404){ GD.listsRO = true; } else throw e; }
+}
+async function readDoc(){
+  if (!GD.listsId){ const r = await gList(`'${GD.folderId}' in parents and name='${LISTS_FILE}' and trashed=false`, 'id'); GD.listsId = r[0]?.id || null; }
+  if (!GD.listsId) return;
+  try { const doc = await (await gapi(`files/${GD.listsId}?alt=media&supportsAllDrives=true`)).json(); if (doc?.app === 'pletina') await mergeDoc(doc); } catch (e) { if (e.reauth) throw e; console.warn('listas drive', e); }
+}
+function driveStatus(){ const el = $('#gd-status'); if (el) el.textContent = driveStatusText(); $$('[data-act="gd-sync"]').forEach(b => { b.disabled = GD.busy; b.innerHTML = `${icon('cloud')}${GD.busy ? 'Sincronizando…' : 'Sincronizar'}`; }); }
+function relTime(ts){ if (!ts) return 'nunca'; const s = (Date.now() - ts) / 1000; if (s < 60) return 'hace un momento'; if (s < 3600) return `hace ${Math.round(s / 60)} min`; if (s < 86400) return `hace ${Math.round(s / 3600)} h`; return new Date(ts).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }); }
+function driveStatusText(){
+  if (GD.busy) return 'Sincronizando…';
+  return `Carpeta «${GD.folderName || S.settings.driveFolder || 'Pletina'}» · última sincronización: ${relTime(S.settings.driveLast)}${GD.listsRO ? ' · listas en solo lectura' : ''}`;
+}
+async function syncDrive({ interactive = false, media = true, quiet = false, first = false } = {}){
+  if (GD.busy) return;
+  if (inFrame){ toast('La sincronización con Drive funciona en la app instalada (smithaldana.github.io/pletina), no en esta vista previa.', { ms: 6000 }); return; }
+  GD.busy = true; driveStatus(); updateCounter('SYNC');
+  let tt = null, added = 0, linked = 0, removed = 0;
+  try {
+    await getToken(interactive);
+    if (!S.settings.driveEmail){ try { const a = await (await gapi('about?fields=user(emailAddress)')).json(); S.settings.driveEmail = a.user?.emailAddress || ''; saveSettings(); } catch {} }
+    await findFolder();
+    if (media){
+      const files = await listMedia(), present = new Set(files.map(f => f.id));
+      const byDrive = new Set([...S.tracks.values()].filter(t => t.driveId).map(t => t.driveId));
+      const toGet = [];
+      for (const f of files){
+        if (byDrive.has(f.id)) continue;
+        const loc = [...S.tracks.values()].find(t => !t.driveId && t.fileName === f.name && t.size === f.size);
+        if (loc){ loc.driveId = f.id; loc.driveMd5 = f.md5Checksum || ''; await saveTrack(loc); linked++; continue; }
+        toGet.push(f);
+      }
+      if (toGet.length){
+        S.importing = true; document.body.classList.add('recording'); requestPersist();
+        tt = toast('', { ms: 1e9 }); const got = [];
+        for (let i = 0; i < toGet.length; i++){
+          const f = toGet[i];
+          tt.set(`Drive: descargando ${i + 1} de ${toGet.length} · ${f.name} (${fmtBytes(f.size)})`); updateCounter(`SYNC ${i + 1}/${toGet.length}`);
+          try { const file = await driveDownload(f); const r = await importOne(file, { driveId: f.id, driveMd5: f.md5Checksum || '' }, f.album); if (r && r !== 'dup'){ got.push(r); added++; } }
+          catch (e) { if (e.reauth) throw e; if (e?.name === 'QuotaExceededError'){ toast('No queda espacio en este dispositivo para más música.'); break; } console.warn('drive', f.name, e); }
+        }
+        tt.kill(); tt = null; S.importing = false; document.body.classList.remove('recording');
+        queueAnalysis(got);
+      }
+      const gone = [...S.tracks.values()].filter(t => t.driveId && !present.has(t.driveId)).map(t => t.id);
+      if (gone.length){ await deleteTracks(gone); removed = gone.length; }
+    }
+    await readDoc();
+    await pushDoc();
+    S.settings.driveLast = Date.now(); saveSettings();
+    if (!quiet || added || removed){
+      const parts = [];
+      if (added) parts.push(plural(added, 'pista nueva', 'pistas nuevas'));
+      if (removed) parts.push(`${removed} quitada${removed === 1 ? '' : 's'} (ya no están en Drive)`);
+      if (linked) parts.push(`${linked} ya las tenías`);
+      toast(parts.length ? `Drive: ${parts.join(' · ')}.` : 'Drive: todo al día.');
+    }
+    if (first){
+      const localOnly = [...S.tracks.values()].filter(t => !t.driveId && !t.demo).length;
+      if (GD.created) toast(`He creado la carpeta «${GD.folderName}» en tu Drive. En el computador está en G:\\Mi unidad\\${GD.folderName}: mete ahí tu música.`, { ms: 9000 });
+      if (localOnly) setTimeout(() => toast(`Tienes ${plural(localOnly, 'pista', 'pistas')} solo en este dispositivo.`, { action: 'Subir a Drive', onAction: uploadLocal, ms: 9000 }), GD.created ? 9200 : 3500);
+    }
+  } catch (e) {
+    if (tt) tt.kill(); S.importing = false; document.body.classList.remove('recording');
+    if (first && !GD.token){ S.settings.driveOn = false; saveSettings(); }
+    if (!(quiet && e.reauth)) toast(e.reauth ? e.message : 'Drive: ' + (e.message || e), { ms: 6000 });
+  } finally {
+    GD.busy = false; updateCounter(); render(); driveStatus();
+  }
+}
+function listsChanged(){
+  if (!S.settings.driveOn || GD.merging) return;
+  clearTimeout(GD.pushT);
+  GD.pushT = setTimeout(async () => {
+    if (!tokValid() || GD.busy || !GD.folderId) return;
+    try { GD.busy = true; await readDoc(); await pushDoc(); S.settings.driveLast = Date.now(); saveSettings(); } catch (e) { console.warn('drive push', e); } finally { GD.busy = false; driveStatus(); }
+  }, 4000);
+}
+{ const _put = DB.put.bind(DB), _del = DB.del.bind(DB);
+  DB.put = (s, v, k) => { const r = _put(s, v, k); if (s === 'playlists') listsChanged(); return r; };
+  DB.del = (s, k) => { if (s === 'playlists' && !GD.merging){ S.tombs = [...(S.tombs || []).filter(x => x.id !== k), { id: k, t: Date.now() }]; _put('meta', S.tombs, 'tombs').catch(() => {}); listsChanged(); } return _del(s, k); };
+}
+async function uploadLocal(){
+  const list = [...S.tracks.values()].filter(t => !t.driveId && !t.demo);
+  if (!list.length){ toast('No hay pistas para subir: todo está en Drive.'); return; }
+  if (GD.busy){ toast('Espera a que termine la sincronización.'); return; }
+  GD.busy = true; driveStatus();
+  const tt = toast('', { ms: 1e9 }); let ok = 0;
+  try {
+    await getToken(true); if (!GD.folderId) await findFolder();
+    for (let i = 0; i < list.length; i++){
+      const t = list[i], blob = await DB.get('blobs', t.id); if (!blob) continue;
+      tt.set(`Drive: subiendo ${i + 1} de ${list.length} · ${t.fileName} (${fmtBytes(blob.size)})`); updateCounter(`SUBE ${i + 1}/${list.length}`);
+      const init = await gapi('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,md5Checksum&supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': t.mime || blob.type || 'application/octet-stream', 'X-Upload-Content-Length': String(blob.size) }, body: JSON.stringify({ name: t.fileName, parents: [GD.folderId] }) });
+      const loc = init.headers.get('Location'); if (!loc) throw new Error('Google no aceptó la subida.');
+      const r = await fetch(loc, { method: 'PUT', body: blob });
+      if (!r.ok) throw new Error('falló la subida de ' + t.fileName);
+      const j = await r.json(); t.driveId = j.id; t.driveMd5 = j.md5Checksum || ''; await saveTrack(t); ok++;
+    }
+    tt.kill(); toast(`Drive: ${plural(ok, 'pista subida', 'pistas subidas')}. Ya aparecen en tus otros dispositivos al sincronizar.`, { ms: 5000 });
+    await readDoc(); await pushDoc();
+  } catch (e) {
+    tt.kill(); toast(e.status === 403 ? 'Drive no me deja escribir en esa carpeta. Usa una carpeta creada por Pletina.' : 'Drive: ' + (e.message || e), { ms: 7000 });
+  } finally { GD.busy = false; updateCounter(); driveStatus(); if (S.view === 'settings') render(); }
+}
+function driveDisconnect(){
+  try { if (GD.token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(GD.token, () => {}); } catch {}
+  GD.token = null; GD.exp = 0; GD.folderId = null; GD.listsId = null; saveTok();
+  S.settings.driveOn = false; S.settings.driveEmail = ''; saveSettings(); render();
+  toast('Drive desconectado. Tu música sigue en este dispositivo.');
+}
+function driveSettingsHTML(){
+  if (!S.settings.driveOn && !inFrame) loadGIS().catch(() => {});
+  const note = inFrame ? '<div class="set-row"><div class="lbl"><small>La sincronización funciona en la app instalada (smithaldana.github.io/pletina), no en esta vista previa.</small></div></div>' : '';
+  let rows;
+  if (!clientId()) rows = `<div class="set-row col"><div class="lbl">Sincronizar con Google Drive<small>Tu música y tus listas en una carpeta de Drive, iguales en el móvil y en el computador. Pega aquí el ID de cliente de Google Cloud.</small></div><div class="newpl" style="margin:0"><input type="text" id="gd-client" placeholder="…apps.googleusercontent.com" autocomplete="off" aria-label="ID de cliente de Google"><button class="btn btn-rec" data-act="gd-save-client" type="button">Guardar</button></div></div>`;
+  else if (!S.settings.driveOn) rows = `<div class="set-row col"><div class="lbl">Sincronizar con Google Drive<small>Tu música y tus listas en una carpeta de Drive, iguales en el móvil y en el computador. Si la carpeta no existe, la creo.</small></div><label class="field"><span class="eyebrow">Carpeta</span><input type="text" id="gd-folder" value="${esc(S.settings.driveFolder || 'Pletina')}" maxlength="80" autocomplete="off"></label><div><button class="btn btn-rec" data-act="gd-connect" type="button">${icon('cloud')}Conectar con Google</button></div></div>`;
+  else {
+    const localOnly = [...S.tracks.values()].filter(t => !t.driveId && !t.demo).length;
+    rows = `<div class="set-row"><div class="lbl">${esc(S.settings.driveEmail || 'Conectado')}<small id="gd-status">${esc(driveStatusText())}</small></div><button class="btn btn-rec" data-act="gd-sync" type="button"${GD.busy ? ' disabled' : ''}>${icon('cloud')}${GD.busy ? 'Sincronizando…' : 'Sincronizar'}</button></div>`
+      + (localOnly ? `<div class="set-row"><div class="lbl">${plural(localOnly, 'pista solo en este dispositivo', 'pistas solo en este dispositivo')}<small>Súbelas a la carpeta para tenerlas también en tus otros dispositivos.</small></div><button class="btn" data-act="gd-upload" type="button">${icon('upload')}Subir a Drive</button></div>` : '')
+      + `<div class="set-row"><div class="lbl">Desconectar<small>Tu música se queda en este dispositivo; deja de sincronizarse.</small></div><button class="btn danger" data-act="gd-disconnect" type="button">Desconectar</button></div>`;
+  }
+  return `<section class="set-group"><h2>Google Drive</h2><div class="set-card">${rows}${note}</div></section>`;
 }
 
 /* ───────── compartir listas: un .zip con la lista y sus archivos ───────── */
@@ -2161,6 +2405,11 @@ function bindUI(){
       case 'export': exportBackup(); break;
       case 'import-backup': $('#backup-in').click(); break;
       case 'wipe': wipeAll(); break;
+      case 'gd-save-client': { const v = ($('#gd-client')?.value || '').trim(); if (!/\.apps\.googleusercontent\.com$/.test(v)){ toast('Ese no parece un ID de cliente: debe terminar en .apps.googleusercontent.com'); break; } S.settings.driveClientId = v; saveSettings(); render(); toast('ID guardado. Ahora pulsa «Conectar».'); break; }
+      case 'gd-connect': { const f = ($('#gd-folder')?.value || '').trim(); if (f) S.settings.driveFolder = f.slice(0, 80); S.settings.driveOn = true; saveSettings(); syncDrive({ interactive: true, first: true }); render(); break; }
+      case 'gd-sync': syncDrive({ interactive: true }); break;
+      case 'gd-upload': uploadLocal(); break;
+      case 'gd-disconnect': driveDisconnect(); break;
     }
   });
   view.addEventListener('change', e => {
@@ -2360,6 +2609,8 @@ async function boot(){
   try { document.fonts && document.fonts.ready.then(() => { vuFace = null; markDirty(); setupMarquee(); }); } catch {}
   await checkInbox();
   if (!seeded && !S.tracks.size) seedDemos();
+  try { S.tombs = (await DB.get('meta', 'tombs')) || []; } catch { S.tombs = []; }
+  if (S.settings.driveOn && !inFrame){ loadTok(); loadGIS().catch(() => {}); if (tokValid()) setTimeout(() => syncDrive({ quiet: true }), 1500); }
   queueAnalysis([...S.tracks.values()].filter(t => t.env === undefined).map(t => t.id));
   recaptureFrames([...S.tracks.values()].filter(t => t.kind === 'video' && !t.wide));
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && !inFrame) navigator.serviceWorker.register('sw.js').catch(() => {});
